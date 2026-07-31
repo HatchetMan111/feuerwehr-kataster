@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feuerwehr-Kataster – Verwaltung</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>Feuerwehr-Kataster – Verwaltung</h1>
+  <form id="login-form">
+    <input type="text" id="login-username" placeholder="Benutzername" autocomplete="username" required />
+    <input type="password" id="login-password" placeholder="Passwort" autocomplete="current-password" required />
+    <button type="submit">Anmelden</button>
+    <div id="login-error"></div>
+  </form>
+</div>
+
+<div id="app-shell">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1 id="wehr-title">Feuerwehr-Kataster</h1>
+      <p>Verwaltungsoberfläche</p>
+      <button id="new-point-btn">+ Neuen Punkt anlegen</button>
+    </div>
+    <div id="point-list"></div>
+
+    <div id="user-admin" style="display:none;">
+      <h3>Neuen Nutzer anlegen (nur Admin)</h3>
+      <form id="user-form">
+        <input type="text" id="u-username" placeholder="Benutzername" required style="flex:1 1 100px;" />
+        <input type="password" id="u-password" placeholder="Passwort" required style="flex:1 1 100px;" />
+        <select id="u-role">
+          <option value="gruppenfuehrer">Gruppenführer</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button type="submit">Anlegen</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="map-area">
+    <div id="map"></div>
+
+    <div id="detail-panel">
+      <h2 id="detail-title">–</h2>
+      <div class="detail-row"><span>Kategorie</span><span id="detail-category">–</span></div>
+      <div class="detail-row"><span>Fassungsvermögen</span><span id="detail-capacity">–</span></div>
+      <div class="detail-row"><span>Zugänglichkeit</span><span id="detail-access">–</span></div>
+      <div class="detail-row"><span>Zustand</span><span id="detail-condition">–</span></div>
+      <div class="detail-row"><span>Eigentümer</span><span id="detail-owner">–</span></div>
+      <div class="detail-row"><span>Telefon</span><span id="detail-phone">–</span></div>
+      <div class="detail-row"><span>Schlüssel/Zugang</span><span id="detail-key">–</span></div>
+      <div class="detail-row"><span>Letzte Prüfung</span><span id="detail-checked">–</span></div>
+      <div id="detail-actions">
+        <button id="detail-edit">Bearbeiten</button>
+        <button id="detail-delete">Löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="form-overlay">
+  <form id="point-form">
+    <h2 id="form-title">Neuen Punkt anlegen</h2>
+    <p class="hint">Auf die Karte klicken, um die Position zu setzen. Aktuell: <span id="form-coords">– noch keine Position –</span></p>
+
+    <label>Name</label>
+    <input type="text" id="f-name" required />
+
+    <label>Kategorie</label>
+    <select id="f-category" required></select>
+
+    <label>Fassungsvermögen (Liter)</label>
+    <input type="number" id="f-capacity" />
+
+    <label>Zugänglichkeit</label>
+    <input type="text" id="f-access" />
+
+    <label>Zustand / Bemerkung</label>
+    <textarea id="f-condition"></textarea>
+
+    <label>Eigentümer</label>
+    <input type="text" id="f-owner" />
+
+    <label>Telefonnummer Eigentümer</label>
+    <input type="text" id="f-phone" />
+
+    <label>Schlüssel-Depot / Zugang</label>
+    <input type="text" id="f-key" />
+
+    <label>Letzte Prüfung</label>
+    <input type="date" id="f-checked" />
+
+    <div class="form-actions">
+      <button type="button" class="btn-cancel" id="form-cancel">Abbrechen</button>
+      <button type="submit" class="btn-save">Speichern</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

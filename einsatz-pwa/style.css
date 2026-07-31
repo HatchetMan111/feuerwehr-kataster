@@ -1,0 +1,116 @@
+:root {
+  --teal-50: #E1F5EE; --teal-600: #0F6E56; --teal-900: #04342C;
+  --coral-50: #FAECE7; --coral-600: #993C1D; --coral-900: #4A1B0C;
+  --gray-50: #F1EFE8; --gray-600: #5F5E5A; --gray-900: #2C2C2A;
+  --blue-600: #378ADD;
+  --text-primary: #1a1a18;
+  --text-secondary: #5f5e5a;
+  --border: #e2e0d8;
+  --surface: #ffffff;
+  --surface-muted: #f7f6f2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text-primary);
+  background: var(--surface-muted);
+}
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* --- Login --- */
+#login-screen {
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  height: 100vh; padding: 24px; gap: 16px; background: var(--surface);
+}
+#login-screen h1 { font-size: 20px; font-weight: 500; margin: 0; }
+#login-screen p { color: var(--text-secondary); margin: 0 0 8px; font-size: 14px; }
+#login-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
+#login-form input {
+  height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 15px;
+}
+#login-form button {
+  height: 42px; border: none; border-radius: 8px; background: var(--blue-600); color: white;
+  font-size: 15px; font-weight: 500; cursor: pointer;
+}
+#login-error { color: var(--coral-600); font-size: 13px; min-height: 18px; }
+
+/* --- Top bar --- */
+#topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#topbar h1 { font-size: 16px; font-weight: 500; margin: 0; }
+#topbar p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+#offline-badge {
+  font-size: 11px; padding: 3px 8px; border-radius: 10px; background: var(--coral-50); color: var(--coral-900);
+  display: none;
+}
+#offline-badge.show { display: inline-block; }
+
+/* --- Filter chips --- */
+#filters { display: flex; gap: 8px; padding: 10px 16px; background: var(--surface); overflow-x: auto; flex-shrink: 0; }
+.chip {
+  border: none; border-radius: 14px; padding: 6px 14px; font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; opacity: 0.45;
+}
+.chip.active { opacity: 1; }
+.chip.teal { background: var(--teal-50); color: var(--teal-900); }
+.chip.coral { background: var(--coral-50); color: var(--coral-900); }
+.chip.gray { background: var(--gray-50); color: var(--gray-900); }
+
+/* --- Map --- */
+#map { flex: 1; }
+.fab {
+  position: absolute; right: 20px; bottom: 20px; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--blue-600); color: white; border: none; font-size: 26px; line-height: 52px;
+  text-align: center; cursor: pointer; z-index: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+/* --- Bottom sheet --- */
+#sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface);
+  border-radius: 16px 16px 0 0; padding: 16px; transform: translateY(100%);
+  transition: transform 0.2s ease-out; z-index: 600; max-height: 60vh; overflow-y: auto;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.15);
+}
+#sheet.open { transform: translateY(0); }
+#sheet-close { float: right; border: none; background: none; font-size: 18px; cursor: pointer; color: var(--text-secondary); }
+#sheet h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
+#sheet .subtitle { color: var(--text-secondary); font-size: 13px; margin: 0 0 12px; }
+.sheet-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.sheet-row span:first-child { color: var(--text-secondary); }
+.sheet-actions { display: flex; gap: 8px; margin-top: 14px; }
+.sheet-actions button {
+  flex: 1; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+  font-size: 14px; cursor: pointer;
+}
+
+/* --- Form overlay --- */
+#form-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: none;
+  align-items: flex-end; z-index: 800;
+}
+#form-overlay.open { display: flex; }
+#point-form {
+  background: var(--surface); border-radius: 16px 16px 0 0; padding: 20px; width: 100%;
+  max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+}
+#point-form h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
+#point-form label { font-size: 13px; color: var(--text-secondary); margin-bottom: -6px; }
+#point-form input, #point-form select, #point-form textarea {
+  height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 14px;
+  font-family: inherit;
+}
+#point-form textarea { height: 60px; padding: 8px 10px; resize: vertical; }
+#point-form .hint { font-size: 12px; color: var(--text-secondary); }
+#point-form .form-actions { display: flex; gap: 8px; margin-top: 8px; }
+#point-form .form-actions button {
+  flex: 1; height: 42px; border-radius: 10px; border: none; font-size: 14px; font-weight: 500; cursor: pointer;
+}
+#point-form .btn-save { background: var(--blue-600); color: white; }
+#point-form .btn-cancel { background: var(--gray-50); color: var(--gray-900); }

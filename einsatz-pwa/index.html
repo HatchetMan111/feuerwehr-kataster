@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Feuerwehr-Kataster</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0F6E56" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- Login -->
+  <div id="login-screen">
+    <h1>Feuerwehr-Kataster</h1>
+    <p>Bitte mit deinem Zugang anmelden.</p>
+    <form id="login-form">
+      <input type="text" id="login-username" placeholder="Benutzername" autocomplete="username" required />
+      <input type="password" id="login-password" placeholder="Passwort" autocomplete="current-password" required />
+      <button type="submit">Anmelden</button>
+      <div id="login-error"></div>
+    </form>
+  </div>
+
+  <!-- Hauptansicht -->
+  <div id="main-screen" style="display:none; flex-direction:column; height:100%;">
+    <div id="topbar">
+      <div>
+        <h1 id="wehr-title">Feuerwehr-Kataster</h1>
+        <p id="wehr-subtitle">Löschwasser &amp; Einsatzpunkte</p>
+      </div>
+      <span id="offline-badge">Offline – zeige gespeicherte Daten</span>
+    </div>
+
+    <div id="filters">
+      <button class="chip teal active" data-color="teal">Wasserquellen</button>
+      <button class="chip coral active" data-color="coral">Gefahren</button>
+      <button class="chip gray active" data-color="gray">Sonstiges</button>
+    </div>
+
+    <div style="position:relative; flex:1;">
+      <div id="map"></div>
+      <button class="fab" id="fab-add" title="Neuen Punkt anlegen">+</button>
+
+      <!-- Detailkarte -->
+      <div id="sheet">
+        <button id="sheet-close">✕</button>
+        <h2 id="sheet-title">–</h2>
+        <p class="subtitle" id="sheet-subtitle">–</p>
+        <div class="sheet-row"><span>Zugänglichkeit</span><span id="sheet-access">–</span></div>
+        <div class="sheet-row"><span>Zustand</span><span id="sheet-condition">–</span></div>
+        <div class="sheet-row"><span>Eigentümer</span><span id="sheet-owner">–</span></div>
+        <div class="sheet-row"><span>Letzte Prüfung</span><span id="sheet-checked">–</span></div>
+        <div class="sheet-actions">
+          <button id="sheet-edit">Bearbeiten</button>
+          <button id="sheet-route">Route</button>
+        </div>
+      </div>
+
+      <!-- Formular: neuer / bearbeiteter Punkt -->
+      <div id="form-overlay">
+        <form id="point-form">
+          <h2 id="form-title">Neuen Punkt anlegen</h2>
+          <p class="hint">Auf die Karte tippen, um die Position zu setzen. Aktuell gewählt: <span id="form-coords">– noch keine Position –</span></p>
+
+          <label>Name</label>
+          <input type="text" id="f-name" placeholder="z.B. Löschteich Amtshof" required />
+
+          <label>Kategorie</label>
+          <select id="f-category" required></select>
+
+          <label>Fassungsvermögen (Liter)</label>
+          <input type="number" id="f-capacity" placeholder="z.B. 80000" />
+
+          <label>Zugänglichkeit</label>
+          <input type="text" id="f-access" placeholder="z.B. LKW-tauglich, Saugschlauch 110mm" />
+
+          <label>Zustand / Bemerkung</label>
+          <textarea id="f-condition" placeholder="z.B. verlandet im Sommer"></textarea>
+
+          <label>Eigentümer</label>
+          <input type="text" id="f-owner" placeholder="Name" />
+
+          <label>Telefonnummer Eigentümer</label>
+          <input type="text" id="f-phone" placeholder="Telefonnummer" />
+
+          <label>Schlüssel-Depot / Zugang</label>
+          <input type="text" id="f-key" placeholder="z.B. Schlüsselrohr am Hoftor" />
+
+          <label>Letzte Prüfung</label>
+          <input type="date" id="f-checked" />
+
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" id="form-cancel">Abbrechen</button>
+            <button type="submit" class="btn-save" id="form-save">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

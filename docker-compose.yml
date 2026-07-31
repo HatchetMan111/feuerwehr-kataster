@@ -1,0 +1,66 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - admin-web
+      - einsatz-pwa
+
+  postgis:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kataster}
+      POSTGRES_USER: ${DB_USER:-kataster}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgis
+      DB_NAME: ${DB_NAME:-kataster}
+      DB_USER: ${DB_USER:-kataster}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      WEHRNAME: ${WEHRNAME:-Musterwehr}
+    depends_on:
+      - postgis
+
+  admin-web:
+    build: ./admin-web
+    restart: unless-stopped
+
+  einsatz-pwa:
+    build: ./einsatz-pwa
+    restart: unless-stopped
+
+  # Wird normalerweise per "docker compose up -d tileserver" gestartet,
+  # NACHDEM setup-tiles.sh den Kartenausschnitt vorbereitet hat.
+  # Für den einmaligen Import: "docker compose run --rm tileserver import"
+  tileserver:
+    image: overv/openstreetmap-tile-server
+    restart: unless-stopped
+    shm_size: 256mb
+    volumes:
+      - ./tiles/local.osm.pbf:/data/region.osm.pbf:ro
+      - osm_tile_data:/data/database/
+    command: ["run"]
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:
+  osm_tile_data:

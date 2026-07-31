@@ -1,0 +1,28 @@
+{
+	# Interne Zertifikate: funktionieren auch ohne öffentliche Domain,
+	# müssen einmalig auf den Geräten der Gruppenführer als vertrauenswürdig
+	# hinterlegt werden (siehe README, Abschnitt "TLS-Zertifikat").
+	auto_https disable_redirects
+}
+
+{$DOMAIN:kataster.feuerwehr.local} {
+	tls internal
+
+	handle_path /api/* {
+		reverse_proxy backend:3000
+	}
+
+	handle_path /tiles/* {
+		# overv/openstreetmap-tile-server liefert Kacheln unter /tile/{z}/{x}/{y}.png
+		rewrite * /tile{path}
+		reverse_proxy tileserver:80
+	}
+
+	handle_path /admin/* {
+		reverse_proxy admin-web:80
+	}
+
+	handle {
+		reverse_proxy einsatz-pwa:80
+	}
+}
