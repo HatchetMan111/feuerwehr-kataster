@@ -82,7 +82,19 @@ pct create 201 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
   --features nesting=1,keyctl=1 --unprivileged 1 --onboot 1
 
 pct start 201
-pct exec 201 -- bash -c "apt update && apt install -y docker.io docker-compose-plugin git"
+pct exec 201 -- bash -c '
+set -e
+apt-get update -qq
+apt-get install -y ca-certificates curl gnupg git
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+ARCH=$(dpkg --print-architecture)
+CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $CODENAME stable" > /etc/apt/sources.list.d/docker.list
+apt-get update -qq
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+'
 pct exec 201 -- git clone https://github.com/HatchetMan111/feuerwehr-kataster.git /opt/feuerwehr-kataster
 ```
 

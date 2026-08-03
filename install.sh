@@ -76,8 +76,20 @@ pct start "$CTID"
 msg "Warte, bis der Container bereit ist..."
 sleep 8
 
-msg "Installiere Docker im Container..."
-pct exec "$CTID" -- bash -c "apt-get update -qq && apt-get install -y docker.io docker-compose-plugin git curl >/dev/null"
+msg "Installiere Docker (offizielles Docker-Repository – Debian selbst bietet kein docker-compose-plugin an)..."
+pct exec "$CTID" -- bash -c '
+set -e
+apt-get update -qq
+apt-get install -y ca-certificates curl gnupg git >/dev/null
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+ARCH=$(dpkg --print-architecture)
+CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $CODENAME stable" > /etc/apt/sources.list.d/docker.list
+apt-get update -qq
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null
+'
 
 msg "Lade die Anwendung aus dem Repository..."
 pct exec "$CTID" -- bash -c "git clone --depth 1 '$GH_REPO.git' /opt/feuerwehr-kataster"
