@@ -76,6 +76,10 @@ pct start "$CTID"
 msg "Warte, bis der Container bereit ist..."
 sleep 8
 
+IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
+[ -z "$IP" ] && fail "Konnte keine IP-Adresse für den Container ermitteln."
+msg "Container-IP: $IP (das Zertifikat wird direkt für diese Adresse ausgestellt)"
+
 msg "Installiere Docker (offizielles Docker-Repository – Debian selbst bietet kein docker-compose-plugin an)..."
 pct exec "$CTID" -- bash -c '
 set -e
@@ -104,7 +108,7 @@ DB_USER=kataster
 DB_PASSWORD=$DB_PASSWORD
 JWT_SECRET=$JWT_SECRET
 ADMIN_PASSWORD=$ADMIN_PASSWORD
-DOMAIN=$HOSTNAME.local
+DOMAIN=$IP
 WEHRNAME=$WEHRNAME
 EOF
 
@@ -120,8 +124,6 @@ pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash setup-tiles.sh '
 msg "Starte den Kartenserver..."
 pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && docker compose --env-file .env up -d tileserver" || true
 
-IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
-
 echo ""
 echo "=================================================================="
 echo " $APP wurde erfolgreich installiert."
@@ -131,8 +133,16 @@ echo "  Admin-Benutzername: admin"
 echo "  Admin-Passwort:     $ADMIN_PASSWORD"
 echo ""
 echo "  WICHTIG:"
+echo "  - Der Browser wird beim ersten Aufruf vor dem Zertifikat warnen"
+echo "    (selbstsigniert, aber genau für $IP ausgestellt) - das ist normal,"
+echo "    einmal bestätigen bzw. das Zertifikat als vertrauenswürdig hinterlegen"
+echo "    (siehe README.md, Abschnitt 'TLS-Zertifikat')."
 echo "  - Diese Adresse nur über euer VPN erreichbar machen,"
 echo "    NICHT im öffentlichen Internet freigeben."
 echo "  - Beim ersten Login das Admin-Passwort direkt ändern."
-echo "  - Details zum Zertifikat findet ihr in der README.md."
+echo "  - Falls sich die IP-Adresse des Containers später ändert (z.B. nach"
+echo "    einem Neustart ohne feste IP-Reservierung im Router), muss DOMAIN"
+echo "    in der .env angepasst und 'docker compose up -d --force-recreate"
+echo "    caddy' erneut ausgeführt werden. Eine feste IP-Reservierung im"
+echo "    Router verhindert das."
 echo "=================================================================="
