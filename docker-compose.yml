@@ -2,8 +2,6 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    environment:
-      DOMAIN: ${DOMAIN:-kataster.feuerwehr.local}
     ports:
       - "443:443"
       - "80:80"

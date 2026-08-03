@@ -67,13 +67,13 @@ vertrauenswürdig hinterlegt werden:
 1. Zertifikat aus dem Container holen: `pct exec <CTID> -- docker exec <caddy-container> cat /data/caddy/pki/authorities/local/root.crt`
 2. Auf jedem Gerät (Laptop, Tablet, Handy) als vertrauenswürdige Stammzertifizierungsstelle importieren
 
-`install.sh` setzt `DOMAIN` standardmäßig auf die IP-Adresse, die der Container
-bei der Installation erhalten hat (z.B. `192.168.178.66`) – das Zertifikat wird
-direkt für diese Adresse ausgestellt. Empfehlenswert: im Router eine **feste
-IP-Reservierung** (DHCP-Reservation) für den Container einrichten, damit sich
-die Adresse auch nach einem Neustart nicht ändert. Ändert sie sich doch, muss
-`DOMAIN` in der `.env` angepasst und `docker compose up -d --force-recreate
-caddy` erneut ausgeführt werden.
+Caddy ist bewusst so konfiguriert, dass es **jede Verbindung auf Port 443
+bedient, unabhängig von der aufgerufenen Adresse** (Browser senden bei einer
+reinen IP-Adresse ohnehin keinen Hostnamen mit, ein an einen festen Namen
+gebundenes Zertifikat würde dabei fehlschlagen). Das bedeutet auch: Ändert
+sich die IP-Adresse des Containers (z.B. nach einem Neustart ohne feste
+IP-Reservierung im Router), funktioniert der Zugriff trotzdem weiter – nur
+eben unter der neuen Adresse.
 
 Alternativ: Falls ihr eine eigene Domain besitzt, könnt ihr in der `.env` eine
 echte Domain eintragen und Caddy per DNS-Challenge ein "echtes" Let's-Encrypt-

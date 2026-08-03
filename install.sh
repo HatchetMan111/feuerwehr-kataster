@@ -108,7 +108,6 @@ DB_USER=kataster
 DB_PASSWORD=$DB_PASSWORD
 JWT_SECRET=$JWT_SECRET
 ADMIN_PASSWORD=$ADMIN_PASSWORD
-DOMAIN=$IP
 WEHRNAME=$WEHRNAME
 EOF
 
@@ -140,9 +139,4 @@ echo "    (siehe README.md, Abschnitt 'TLS-Zertifikat')."
 echo "  - Diese Adresse nur über euer VPN erreichbar machen,"
 echo "    NICHT im öffentlichen Internet freigeben."
 echo "  - Beim ersten Login das Admin-Passwort direkt ändern."
-echo "  - Falls sich die IP-Adresse des Containers später ändert (z.B. nach"
-echo "    einem Neustart ohne feste IP-Reservierung im Router), muss DOMAIN"
-echo "    in der .env angepasst und 'docker compose up -d --force-recreate"
-echo "    caddy' erneut ausgeführt werden. Eine feste IP-Reservierung im"
-echo "    Router verhindert das."
 echo "=================================================================="

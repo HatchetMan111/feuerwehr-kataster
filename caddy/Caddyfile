@@ -5,7 +5,12 @@
 	auto_https disable_redirects
 }
 
-{$DOMAIN:kataster.feuerwehr.local} {
+:443 {
+	# Bewusst ohne festen Hostnamen/IP: Browser und curl senden bei einer
+	# reinen IP-Adresse kein SNI mit. Ein an einen bestimmten Namen
+	# gebundenes Zertifikat führte dabei zu einem TLS-internal-error.
+	# Dieser Catch-All-Block bedient jede Verbindung auf Port 443 mit
+	# genau einem selbstsignierten Zertifikat, unabhängig von der IP.
 	tls internal
 
 	handle_path /api/* {
