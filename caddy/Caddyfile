@@ -1,17 +1,17 @@
 {
-	# Interne Zertifikate: funktionieren auch ohne öffentliche Domain,
-	# müssen einmalig auf den Geräten der Gruppenführer als vertrauenswürdig
-	# hinterlegt werden (siehe README, Abschnitt "TLS-Zertifikat").
-	auto_https disable_redirects
+	# Selbstsigniertes Zertifikat (siehe generate-cert.sh): muss einmalig
+	# auf den Geräten der Gruppenführer als vertrauenswürdig hinterlegt
+	# werden, sonst zeigt der Browser eine Warnung (siehe README,
+	# Abschnitt "TLS-Zertifikat").
+	auto_https off
 }
 
 :443 {
-	# Bewusst ohne festen Hostnamen/IP: Browser und curl senden bei einer
-	# reinen IP-Adresse kein SNI mit. Ein an einen bestimmten Namen
-	# gebundenes Zertifikat führte dabei zu einem TLS-internal-error.
-	# Dieser Catch-All-Block bedient jede Verbindung auf Port 443 mit
-	# genau einem selbstsignierten Zertifikat, unabhängig von der IP.
-	tls internal
+	# Statisches, selbstsigniertes Zertifikat (siehe generate-cert.sh),
+	# bewusst NICHT Caddys automatische "tls internal"-Verwaltung:
+	# Diese führte bei reinen IP-Adressen ohne SNI zu einem TLS-internal-error.
+	# Ein einmal erzeugtes, festes Zertifikat mit der IP als SAN umgeht das.
+	tls /certs/selfsigned.crt /certs/selfsigned.key
 
 	handle_path /api/* {
 		reverse_proxy backend:3000

@@ -111,6 +111,9 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 WEHRNAME=$WEHRNAME
 EOF
 
+msg "Erzeuge TLS-Zertifikat für $IP..."
+pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash generate-cert.sh '$IP'"
+
 msg "Starte die Anwendung (Datenbank, Backend, Oberflächen)..."
 pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && docker compose --env-file .env up -d --build postgis backend admin-web einsatz-pwa caddy"
 

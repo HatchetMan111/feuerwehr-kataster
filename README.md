@@ -59,21 +59,26 @@ Passwort direkt nach dem ersten Login ändern.**
 ### TLS-Zertifikat
 
 Für die Offline-Funktion (Service Worker) und "Zum Home-Bildschirm hinzufügen"
-wird eine HTTPS-Verbindung benötigt. Caddy stellt dafür automatisch ein
-**selbstsigniertes Zertifikat** aus. Damit Browser keine Warnung anzeigen,
-muss dieses Zertifikat einmalig auf den Geräten der Gruppenführer als
-vertrauenswürdig hinterlegt werden:
+wird eine HTTPS-Verbindung benötigt. `install.sh` erzeugt dafür automatisch
+ein **selbstsigniertes Zertifikat**, das direkt auf die IP-Adresse eures
+Containers ausgestellt ist (siehe `generate-cert.sh`). Damit der Browser
+keine Warnung mehr anzeigt, muss dieses Zertifikat einmalig auf den Geräten
+der Gruppenführer als vertrauenswürdig hinterlegt werden:
 
-1. Zertifikat aus dem Container holen: `pct exec <CTID> -- docker exec <caddy-container> cat /data/caddy/pki/authorities/local/root.crt`
-2. Auf jedem Gerät (Laptop, Tablet, Handy) als vertrauenswürdige Stammzertifizierungsstelle importieren
+1. Zertifikat aus dem Container holen: `pct exec <CTID> -- cat /opt/feuerwehr-kataster/caddy/certs/selfsigned.crt`
+2. Auf jedem Gerät (Laptop, Tablet, Handy) importieren und als vertrauenswürdig einstufen
 
-Caddy ist bewusst so konfiguriert, dass es **jede Verbindung auf Port 443
-bedient, unabhängig von der aufgerufenen Adresse** (Browser senden bei einer
-reinen IP-Adresse ohnehin keinen Hostnamen mit, ein an einen festen Namen
-gebundenes Zertifikat würde dabei fehlschlagen). Das bedeutet auch: Ändert
-sich die IP-Adresse des Containers (z.B. nach einem Neustart ohne feste
-IP-Reservierung im Router), funktioniert der Zugriff trotzdem weiter – nur
-eben unter der neuen Adresse.
+Ändert sich die IP-Adresse des Containers (z.B. nach einem Neustart ohne
+feste IP-Reservierung im Router), muss das Zertifikat neu erzeugt werden:
+
+```bash
+cd /opt/feuerwehr-kataster
+bash generate-cert.sh          # ermittelt die aktuelle IP automatisch
+docker compose --env-file .env up -d --force-recreate caddy
+```
+
+Empfehlenswert ist trotzdem eine **feste IP-Reservierung** (DHCP-Reservation)
+im Router für den Container, damit dieser Schritt möglichst selten nötig ist.
 
 Alternativ: Falls ihr eine eigene Domain besitzt, könnt ihr in der `.env` eine
 echte Domain eintragen und Caddy per DNS-Challenge ein "echtes" Let's-Encrypt-
