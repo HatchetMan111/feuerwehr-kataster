@@ -93,13 +93,13 @@ body {
 
 /* --- Form overlay --- */
 #form-overlay {
-  position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: none;
-  align-items: flex-end; z-index: 800;
+  position: absolute; inset: 0; display: none;
+  align-items: flex-end; z-index: 800; pointer-events: none;
 }
 #form-overlay.open { display: flex; }
 #point-form {
   background: var(--surface); border-radius: 16px 16px 0 0; padding: 20px; width: 100%;
-  max-width: 480px; margin: 0 auto;
+  max-width: 480px; margin: 0 auto; pointer-events: auto;
   max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
 }
 #point-form h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }

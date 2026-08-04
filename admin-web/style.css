@@ -62,9 +62,9 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #detail-actions button { flex: 1; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; cursor: pointer; }
 #detail-delete { color: var(--coral-600); border-color: var(--coral-600); }
 
-#form-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 900; }
+#form-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 900; pointer-events: none; }
 #form-overlay.open { display: flex; }
-#point-form { background: var(--surface); border-radius: 12px; padding: 20px; width: 420px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+#point-form { background: var(--surface); border-radius: 12px; padding: 20px; width: 420px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
 #point-form h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
 #point-form label { font-size: 13px; color: var(--text-secondary); margin-bottom: -6px; }
 #point-form input, #point-form select, #point-form textarea { height: 36px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 14px; font-family: inherit; }
