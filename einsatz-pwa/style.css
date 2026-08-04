@@ -64,7 +64,7 @@ body {
 .chip.gray { background: var(--gray-50); color: var(--gray-900); }
 
 /* --- Map --- */
-#map { flex: 1; }
+#map { position: absolute; inset: 0; }
 .fab {
   position: absolute; right: 20px; bottom: 20px; width: 52px; height: 52px; border-radius: 50%;
   background: var(--blue-600); color: white; border: none; font-size: 26px; line-height: 52px;
@@ -73,7 +73,8 @@ body {
 
 /* --- Bottom sheet --- */
 #sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface);
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 480px;
+  background: var(--surface);
   border-radius: 16px 16px 0 0; padding: 16px; transform: translateY(100%);
   transition: transform 0.2s ease-out; z-index: 600; max-height: 60vh; overflow-y: auto;
   box-shadow: 0 -2px 12px rgba(0,0,0,0.15);
@@ -98,6 +99,7 @@ body {
 #form-overlay.open { display: flex; }
 #point-form {
   background: var(--surface); border-radius: 16px 16px 0 0; padding: 20px; width: 100%;
+  max-width: 480px; margin: 0 auto;
   max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
 }
 #point-form h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
