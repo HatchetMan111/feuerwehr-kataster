@@ -13,7 +13,7 @@
 	# Ein einmal erzeugtes, festes Zertifikat mit der IP als SAN umgeht das.
 	tls /certs/selfsigned.crt /certs/selfsigned.key
 
-	handle_path /api/* {
+	handle /api/* {
 		reverse_proxy backend:3000
 	}
 
