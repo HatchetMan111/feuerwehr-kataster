@@ -6,11 +6,14 @@ const COLORS = {
   teal:  { marker: '#0F6E56', ring: '#5DCAA5', dark: '#04342C' },
   coral: { marker: '#993C1D', ring: '#E0A088', dark: '#4A1B0C' },
   gray:  { marker: '#5F5E5A', ring: '#C9C7BE', dark: '#2C2C2A' },
+  blue:  { marker: '#378ADD', ring: '#A8CDEF', dark: '#1C4A73' },
 };
 
 let map, markersLayer, categories = [], activeColors = new Set(['teal', 'coral', 'gray']);
 let pendingClickLatLng = null;
 let editingPointId = null;
+let placementMode = false;
+let tempMarker = null;
 
 // --- Hilfsfunktionen für Login/Token ---
 function getToken() { return localStorage.getItem('token'); }
@@ -92,12 +95,30 @@ function initMapIfNeeded() {
   markersLayer = L.layerGroup().addTo(map);
 
   map.on('click', (e) => {
+    if (placementMode) {
+      pendingClickLatLng = e.latlng;
+      placeTempMarker(e.latlng);
+      placementMode = false;
+      document.getElementById('placement-banner').classList.remove('show');
+      openForm(null); // Formular erscheint erst jetzt, mit bereits gesetzter Position
+      return;
+    }
     if (document.getElementById('form-overlay').classList.contains('open')) {
       pendingClickLatLng = e.latlng;
+      placeTempMarker(e.latlng);
       document.getElementById('form-coords').textContent =
         e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
     }
   });
+}
+
+function placeTempMarker(latlng) {
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.marker(latlng, { icon: pinIcon('blue', true) }).addTo(map);
+}
+
+function clearTempMarker() {
+  if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
 }
 
 function pinIcon(colorKey, selected) {
@@ -131,6 +152,13 @@ async function loadPoints() {
     // Bereits geladene / vom Service Worker gecachte Daten bleiben in allPoints erhalten
   }
   renderPoints();
+  renderMobileList();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
 }
 
 function renderPoints() {
@@ -144,6 +172,40 @@ function renderPoints() {
     });
 }
 
+function renderMobileList() {
+  const container = document.getElementById('mobile-point-list');
+  if (!container) return;
+  const visible = allPoints.filter((p) => activeColors.has(p.category_color));
+
+  if (!visible.length) {
+    container.innerHTML = '<div id="list-empty">Keine Punkte in dieser Auswahl.</div>';
+    return;
+  }
+
+  container.innerHTML = visible
+    .map(
+      (p) => `
+      <div class="mobile-point-row" data-id="${p.id}">
+        <span class="dot ${p.category_color}"></span>
+        <div class="info">
+          <div class="name">${escapeHtml(p.name)}</div>
+          <div class="meta">${escapeHtml(p.category_label)}${p.capacity_liters ? ' · ' + Number(p.capacity_liters).toLocaleString('de-DE') + ' L' : ''}</div>
+        </div>
+      </div>`
+    )
+    .join('');
+
+  container.querySelectorAll('.mobile-point-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      const point = allPoints.find((p) => p.id === Number(row.dataset.id));
+      if (!point) return;
+      document.querySelector('.nav-btn[data-view="map"]').click();
+      map.setView([point.lat, point.lng], 17);
+      openSheet(point);
+    });
+  });
+}
+
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => {
     const color = chip.dataset.color;
@@ -155,6 +217,26 @@ document.querySelectorAll('.chip').forEach((chip) => {
       chip.classList.add('active');
     }
     renderPoints();
+    renderMobileList();
+  });
+});
+
+// ============================================================
+// Bottom-Navigation (Karte / Liste)
+// ============================================================
+document.querySelectorAll('.nav-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view;
+    document.getElementById('view-map').classList.toggle('active', view === 'map');
+    document.getElementById('view-list').classList.toggle('active', view === 'list');
+    if (view === 'list') {
+      renderMobileList();
+    } else if (map) {
+      // Leaflet braucht nach dem Wiedereinblenden einen Hinweis zur tatsächlichen Größe
+      setTimeout(() => map.invalidateSize(), 50);
+    }
   });
 });
 
@@ -198,11 +280,15 @@ document.getElementById('sheet-edit').addEventListener('click', () => {
 // ============================================================
 function openForm(point) {
   editingPointId = point ? point.id : null;
-  pendingClickLatLng = point ? { lat: point.lat, lng: point.lng } : null;
+  if (point) {
+    pendingClickLatLng = { lat: point.lat, lng: point.lng };
+  }
+  // Wenn kein "point" übergeben wurde, bleibt eine bereits im Platzierungsschritt
+  // gesetzte pendingClickLatLng erhalten statt überschrieben zu werden.
 
   document.getElementById('form-title').textContent = point ? 'Punkt bearbeiten' : 'Neuen Punkt anlegen';
-  document.getElementById('form-coords').textContent = point
-    ? point.lat.toFixed(5) + ', ' + point.lng.toFixed(5)
+  document.getElementById('form-coords').textContent = pendingClickLatLng
+    ? pendingClickLatLng.lat.toFixed(5) + ', ' + pendingClickLatLng.lng.toFixed(5)
     : '– auf die Karte tippen –';
 
   document.getElementById('f-name').value = point?.name || '';
@@ -218,9 +304,22 @@ function openForm(point) {
   document.getElementById('form-overlay').classList.add('open');
 }
 
-document.getElementById('fab-add').addEventListener('click', () => openForm(null));
+document.getElementById('fab-add').addEventListener('click', () => {
+  placementMode = true;
+  editingPointId = null;
+  pendingClickLatLng = null;
+  clearTempMarker();
+  document.getElementById('placement-banner').classList.add('show');
+});
+
+document.getElementById('placement-cancel').addEventListener('click', () => {
+  placementMode = false;
+  document.getElementById('placement-banner').classList.remove('show');
+});
+
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
+  clearTempMarker();
 });
 
 document.getElementById('point-form').addEventListener('submit', async (e) => {
@@ -254,12 +353,14 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
       alert('Kein Netz – der Punkt wurde lokal gespeichert und wird automatisch übertragen, sobald wieder Verbindung besteht.');
     }
     document.getElementById('form-overlay').classList.remove('open');
+    clearTempMarker();
     loadPoints();
   } catch (err) {
     if (!navigator.onLine) {
       await queuePoint(payload);
       alert('Kein Netz – der Punkt wurde lokal gespeichert und wird automatisch übertragen, sobald wieder Verbindung besteht.');
       document.getElementById('form-overlay').classList.remove('open');
+      clearTempMarker();
     } else {
       alert('Fehler beim Speichern: ' + err.message);
     }

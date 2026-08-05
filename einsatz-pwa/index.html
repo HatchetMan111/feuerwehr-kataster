@@ -41,9 +41,15 @@
       <button class="chip gray active" data-color="gray">Sonstiges</button>
     </div>
 
-    <div style="position:relative; flex:1;">
+    <div id="view-map" class="view active">
       <div id="map"></div>
       <button class="fab" id="fab-add" title="Neuen Punkt anlegen">+</button>
+
+      <!-- Leichter Hinweis beim Platzieren eines neuen Punkts (blockiert die Karte NICHT) -->
+      <div id="placement-banner">
+        <span>Tippe auf die Karte, um die Position zu wählen</span>
+        <button type="button" id="placement-cancel">Abbrechen</button>
+      </div>
 
       <!-- Detailkarte -->
       <div id="sheet">
@@ -60,11 +66,11 @@
         </div>
       </div>
 
-      <!-- Formular: neuer / bearbeiteter Punkt -->
+      <!-- Formular: erscheint erst NACHDEM die Position auf der Karte gewählt wurde -->
       <div id="form-overlay">
         <form id="point-form">
           <h2 id="form-title">Neuen Punkt anlegen</h2>
-          <p class="hint">Auf die Karte tippen, um die Position zu setzen. Aktuell gewählt: <span id="form-coords">– noch keine Position –</span></p>
+          <p class="hint">Position: <span id="form-coords">– noch keine Position –</span> (zum Ändern erneut auf die Karte tippen)</p>
 
           <label>Name</label>
           <input type="text" id="f-name" placeholder="z.B. Löschteich Amtshof" required />
@@ -99,6 +105,19 @@
           </div>
         </form>
       </div>
+    </div>
+
+    <div id="view-list" class="view">
+      <div id="mobile-point-list"></div>
+    </div>
+
+    <div id="bottom-nav">
+      <button class="nav-btn active" data-view="map">
+        <span class="nav-icon">🗺️</span><span>Karte</span>
+      </button>
+      <button class="nav-btn" data-view="list">
+        <span class="nav-icon">📋</span><span>Liste</span>
+      </button>
     </div>
   </div>
 </div>
