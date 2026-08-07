@@ -57,9 +57,18 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 function startApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-shell').classList.add('visible');
-  if (localStorage.getItem('role') === 'admin') {
+  const isAdmin = localStorage.getItem('role') === 'admin';
+  if (isAdmin) {
     document.getElementById('user-admin').style.display = 'block';
+    document.getElementById('wehrname-row').style.display = 'flex';
   }
+  document.getElementById('whoami-name').textContent = localStorage.getItem('username') || '–';
+  api('/api/settings')
+    .then((s) => {
+      document.getElementById('wehr-title').textContent = s.wehrname;
+      document.getElementById('s-wehrname').value = s.wehrname;
+    })
+    .catch(() => {});
   initMap();
   loadCategories().then(loadPoints);
 }
@@ -386,3 +395,48 @@ if (userForm) {
     }
   });
 }
+
+// ============================================================
+// Mein Konto: Wehrname, Passwort, Abmelden
+// ============================================================
+const wehrnameSaveBtn = document.getElementById('wehrname-save-btn');
+if (wehrnameSaveBtn) {
+  wehrnameSaveBtn.addEventListener('click', async () => {
+    const wehrname = document.getElementById('s-wehrname').value.trim();
+    try {
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname }) });
+      document.getElementById('wehr-title').textContent = wehrname;
+    } catch (err) {
+      alert('Fehler: ' + err.message);
+    }
+  });
+}
+
+document.getElementById('password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('password-error');
+  errorEl.textContent = '';
+  const pw1 = document.getElementById('s-new-password').value;
+  const pw2 = document.getElementById('s-new-password-repeat').value;
+  if (pw1 !== pw2) {
+    errorEl.textContent = 'Die Passwörter stimmen nicht überein.';
+    return;
+  }
+  if (pw1.length < 8) {
+    errorEl.textContent = 'Das Passwort muss mindestens 8 Zeichen haben.';
+    return;
+  }
+  try {
+    await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ newPassword: pw1 }) });
+    document.getElementById('password-form').reset();
+    alert('Passwort wurde geändert.');
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  if (!confirm('Wirklich abmelden?')) return;
+  clearSession();
+  location.reload();
+});

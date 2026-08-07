@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kataster-v1';
+const CACHE_NAME = 'kataster-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -50,8 +50,16 @@ self.addEventListener('fetch', (event) => {
   // Anmeldung und schreibende Aufrufe: nie aus dem Cache beantworten
   if (event.request.method !== 'GET') return;
 
-  // App-Hülle: Cache zuerst, Netzwerk als Rückfallebene
+  // App-Hülle: Netzwerk zuerst (damit Updates sofort ankommen), Cache nur als Rückfallebene wenn offline
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

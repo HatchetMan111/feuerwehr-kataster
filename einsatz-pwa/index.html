@@ -130,12 +130,47 @@
       <div id="mobile-point-list"></div>
     </div>
 
+    <div id="view-settings" class="view">
+      <div id="settings-content">
+        <h2>Angemeldet als</h2>
+        <p id="settings-whoami" class="hint">–</p>
+
+        <h2>Name der Feuerwehr</h2>
+        <div id="wehrname-display-row">
+          <span id="wehrname-display">–</span>
+          <button type="button" id="wehrname-edit-btn" style="display:none;">Ändern</button>
+        </div>
+        <form id="wehrname-form" style="display:none;">
+          <input type="text" id="s-wehrname" />
+          <div class="settings-actions">
+            <button type="button" class="btn-cancel" id="wehrname-cancel">Abbrechen</button>
+            <button type="submit" class="btn-save">Speichern</button>
+          </div>
+        </form>
+
+        <h2>Passwort ändern</h2>
+        <form id="password-form">
+          <input type="password" id="s-new-password" placeholder="Neues Passwort (mind. 8 Zeichen)" required />
+          <input type="password" id="s-new-password-repeat" placeholder="Wiederholen" required />
+          <div id="password-error" class="hint"></div>
+          <div class="settings-actions">
+            <button type="submit" class="btn-save">Passwort ändern</button>
+          </div>
+        </form>
+
+        <button type="button" id="logout-btn">Abmelden</button>
+      </div>
+    </div>
+
     <div id="bottom-nav">
       <button class="nav-btn active" data-view="map">
         <span class="nav-icon">🗺️</span><span>Karte</span>
       </button>
       <button class="nav-btn" data-view="list">
         <span class="nav-icon">📋</span><span>Liste</span>
+      </button>
+      <button class="nav-btn" data-view="settings">
+        <span class="nav-icon">⚙️</span><span>Mehr</span>
       </button>
     </div>
   </div>

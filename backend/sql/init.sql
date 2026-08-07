@@ -8,6 +8,12 @@ CREATE TABLE users (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  wehrname TEXT NOT NULL DEFAULT 'Musterwehr',
+  CHECK (id = 1)
+);
+
 CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
   key TEXT UNIQUE NOT NULL,

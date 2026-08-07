@@ -40,6 +40,24 @@
         <button type="submit">Anlegen</button>
       </form>
     </div>
+
+    <div id="account-section">
+      <h3>Mein Konto (<span id="whoami-name">–</span>)</h3>
+
+      <div id="wehrname-row" style="display:none;">
+        <input type="text" id="s-wehrname" placeholder="Name der Feuerwehr" />
+        <button type="button" id="wehrname-save-btn">Wehrname speichern</button>
+      </div>
+
+      <form id="password-form">
+        <input type="password" id="s-new-password" placeholder="Neues Passwort" required style="flex:1 1 100px;" />
+        <input type="password" id="s-new-password-repeat" placeholder="Wiederholen" required style="flex:1 1 100px;" />
+        <button type="submit">Passwort ändern</button>
+      </form>
+      <div id="password-error" class="hint"></div>
+
+      <button type="button" id="logout-btn">Abmelden</button>
+    </div>
   </div>
 
   <div id="map-area">

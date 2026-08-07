@@ -58,8 +58,13 @@ function showLogin() {
 function showMain() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-screen').style.display = 'flex';
-  const wehrname = localStorage.getItem('wehrname') || 'Feuerwehr-Kataster';
-  document.getElementById('wehr-title').textContent = wehrname;
+  document.getElementById('wehr-title').textContent = localStorage.getItem('wehrname_cache') || 'Feuerwehr-Kataster';
+  api('/api/settings')
+    .then((s) => {
+      document.getElementById('wehr-title').textContent = s.wehrname;
+      localStorage.setItem('wehrname_cache', s.wehrname); // fürs nächste Mal, auch offline
+    })
+    .catch(() => {});
   initMapIfNeeded();
   loadCategories().then(loadPoints);
 }
@@ -261,8 +266,11 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     const view = btn.dataset.view;
     document.getElementById('view-map').classList.toggle('active', view === 'map');
     document.getElementById('view-list').classList.toggle('active', view === 'list');
+    document.getElementById('view-settings').classList.toggle('active', view === 'settings');
     if (view === 'list') {
       renderMobileList();
+    } else if (view === 'settings') {
+      loadSettingsView();
     } else if (map) {
       // Leaflet braucht nach dem Wiedereinblenden einen Hinweis zur tatsächlichen Größe
       setTimeout(() => map.invalidateSize(), 50);
@@ -551,6 +559,74 @@ async function syncPendingPoints() {
 }
 
 window.addEventListener('online', syncPendingPoints);
+
+// ============================================================
+// Einstellungen
+// ============================================================
+async function loadSettingsView() {
+  const username = localStorage.getItem('username') || '–';
+  const role = localStorage.getItem('role') === 'admin' ? 'Admin' : 'Gruppenführer';
+  document.getElementById('settings-whoami').textContent = `${username} (${role})`;
+
+  const isAdmin = localStorage.getItem('role') === 'admin';
+  document.getElementById('wehrname-edit-btn').style.display = isAdmin ? 'inline-block' : 'none';
+
+  try {
+    const settings = await api('/api/settings');
+    document.getElementById('wehrname-display').textContent = settings.wehrname;
+  } catch {
+    document.getElementById('wehrname-display').textContent = '–';
+  }
+}
+
+document.getElementById('wehrname-edit-btn').addEventListener('click', () => {
+  document.getElementById('s-wehrname').value = document.getElementById('wehrname-display').textContent;
+  document.getElementById('wehrname-form').style.display = 'flex';
+});
+document.getElementById('wehrname-cancel').addEventListener('click', () => {
+  document.getElementById('wehrname-form').style.display = 'none';
+});
+document.getElementById('wehrname-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const wehrname = document.getElementById('s-wehrname').value.trim();
+  try {
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname }) });
+    document.getElementById('wehrname-display').textContent = wehrname;
+    document.getElementById('wehrname-form').style.display = 'none';
+    document.getElementById('wehr-title').textContent = wehrname;
+  } catch (err) {
+    alert('Fehler: ' + err.message);
+  }
+});
+
+document.getElementById('password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('password-error');
+  errorEl.textContent = '';
+  const pw1 = document.getElementById('s-new-password').value;
+  const pw2 = document.getElementById('s-new-password-repeat').value;
+  if (pw1 !== pw2) {
+    errorEl.textContent = 'Die Passwörter stimmen nicht überein.';
+    return;
+  }
+  if (pw1.length < 8) {
+    errorEl.textContent = 'Das Passwort muss mindestens 8 Zeichen haben.';
+    return;
+  }
+  try {
+    await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ newPassword: pw1 }) });
+    document.getElementById('password-form').reset();
+    alert('Passwort wurde geändert.');
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  if (!confirm('Wirklich abmelden?')) return;
+  clearSession();
+  location.reload();
+});
 
 // ============================================================
 // Start
