@@ -54,15 +54,30 @@
       <!-- Detailkarte -->
       <div id="sheet">
         <button id="sheet-close">✕</button>
+        <img id="sheet-photo" style="display:none;" alt="Foto der Örtlichkeit" />
         <h2 id="sheet-title">–</h2>
         <p class="subtitle" id="sheet-subtitle">–</p>
         <div class="sheet-row"><span>Zugänglichkeit</span><span id="sheet-access">–</span></div>
         <div class="sheet-row"><span>Zustand</span><span id="sheet-condition">–</span></div>
         <div class="sheet-row"><span>Eigentümer</span><span id="sheet-owner">–</span></div>
-        <div class="sheet-row"><span>Letzte Prüfung</span><span id="sheet-checked">–</span></div>
+        <div class="sheet-row">
+          <span>Letzte Prüfung</span>
+          <span id="sheet-checked">–</span>
+        </div>
+        <p id="sheet-overdue-warning" style="display:none;">⚠️ Prüfung überfällig</p>
         <div class="sheet-actions">
           <button id="sheet-edit">Bearbeiten</button>
           <button id="sheet-route">Route</button>
+          <button id="sheet-history">Verlauf</button>
+        </div>
+      </div>
+
+      <!-- Verlauf einer Örtlichkeit -->
+      <div id="history-overlay">
+        <div id="history-panel">
+          <button id="history-close">✕</button>
+          <h2>Änderungsverlauf</h2>
+          <div id="history-list"></div>
         </div>
       </div>
 
@@ -70,7 +85,7 @@
       <div id="form-overlay">
         <form id="point-form">
           <h2 id="form-title">Neuen Punkt anlegen</h2>
-          <p class="hint">Position: <span id="form-coords">– noch keine Position –</span> (zum Ändern erneut auf die Karte tippen)</p>
+          <p class="hint">Position: <span id="form-coords">– noch keine Position –</span> (zum Ändern erneut tippen oder den Marker ziehen)</p>
 
           <label>Name</label>
           <input type="text" id="f-name" placeholder="z.B. Löschteich Amtshof" required />
@@ -98,6 +113,10 @@
 
           <label>Letzte Prüfung</label>
           <input type="date" id="f-checked" />
+
+          <label>Foto (optional)</label>
+          <input type="file" id="f-photo" accept="image/*" capture="environment" />
+          <img id="f-photo-preview" style="display:none;" alt="Vorschau" />
 
           <div class="form-actions">
             <button type="button" class="btn-cancel" id="form-cancel">Abbrechen</button>

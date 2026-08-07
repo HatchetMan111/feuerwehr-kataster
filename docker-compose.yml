@@ -29,6 +29,8 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    volumes:
+      - uploads_data:/app/uploads
     environment:
       DB_HOST: postgis
       DB_NAME: ${DB_NAME:-kataster}
@@ -65,3 +67,4 @@ volumes:
   caddy_data:
   caddy_config:
   osm_tile_data:
+  uploads_data:

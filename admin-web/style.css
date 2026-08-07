@@ -45,6 +45,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 .point-row .info { flex: 1; min-width: 0; }
 .point-row .name { font-size: 14px; font-weight: 500; }
 .point-row .meta { font-size: 12px; color: var(--text-secondary); }
+.overdue-badge { font-size: 13px; flex-shrink: 0; }
 
 #map-area { flex: 1; position: relative; }
 #map { position: absolute; inset: 0; }
@@ -61,6 +62,27 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #detail-actions { display: flex; gap: 8px; margin-top: 12px; }
 #detail-actions button { flex: 1; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; cursor: pointer; }
 #detail-delete { color: var(--coral-600); border-color: var(--coral-600); }
+#detail-photo { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+#detail-overdue-warning {
+  color: var(--coral-600); background: var(--coral-50); font-size: 12px; font-weight: 500;
+  padding: 6px 10px; border-radius: 8px; margin: 8px 0 0;
+}
+
+/* --- Änderungsverlauf --- */
+#history-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none;
+  align-items: center; justify-content: center; z-index: 950;
+}
+#history-overlay.open { display: flex; }
+#history-panel {
+  background: var(--surface); border-radius: 12px; padding: 18px; width: 90%; max-width: 420px;
+  max-height: 70vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+#history-panel h2 { font-size: 16px; font-weight: 500; margin: 0 0 10px; }
+#history-close { float: right; border: none; background: none; font-size: 18px; cursor: pointer; color: var(--text-secondary); }
+.history-entry { padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.history-entry .type { font-weight: 500; }
+.history-entry .meta { color: var(--text-secondary); font-size: 12px; }
 
 #form-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 900; pointer-events: none; }
 #form-overlay.open { display: flex; }
@@ -70,6 +92,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #point-form input, #point-form select, #point-form textarea { height: 36px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 14px; font-family: inherit; }
 #point-form textarea { height: 56px; padding: 8px 10px; resize: vertical; }
 #point-form .hint { font-size: 12px; color: var(--text-secondary); }
+#f-photo-preview { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; }
 #point-form .form-actions { display: flex; gap: 8px; margin-top: 8px; }
 #point-form .form-actions button { flex: 1; height: 40px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; cursor: pointer; }
 .btn-save { background: var(--blue-600); color: white; }

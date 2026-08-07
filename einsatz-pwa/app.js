@@ -114,21 +114,43 @@ function initMapIfNeeded() {
 
 function placeTempMarker(latlng) {
   if (tempMarker) map.removeLayer(tempMarker);
-  tempMarker = L.marker(latlng, { icon: pinIcon('blue', true) }).addTo(map);
+  tempMarker = L.marker(latlng, { icon: pinIcon('blue', true), draggable: true }).addTo(map);
+  tempMarker.on('dragend', () => {
+    const pos = tempMarker.getLatLng();
+    pendingClickLatLng = pos;
+    document.getElementById('form-coords').textContent = pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5);
+  });
 }
 
 function clearTempMarker() {
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
 }
 
-function pinIcon(colorKey, selected) {
+const OVERDUE_MONTHS = 12; // ab wann eine Prüfung als überfällig gilt
+
+function isOverdue(point) {
+  if (!point.last_checked) return true; // noch nie geprüft
+  const checked = new Date(point.last_checked);
+  const limit = new Date();
+  limit.setMonth(limit.getMonth() - OVERDUE_MONTHS);
+  return checked < limit;
+}
+
+function pinIcon(colorKey, selected, overdue) {
   const c = COLORS[colorKey] || COLORS.gray;
   const size = selected ? 30 : 22;
+  const warningDot = overdue
+    ? `<div style="position:absolute; top:-2px; right:-2px; width:10px; height:10px; border-radius:50%;
+                   background:#993C1D; border:1.5px solid white;"></div>`
+    : '';
   const html = `
-    <div style="width:${size}px;height:${size}px;border-radius:50%;
-                background:${c.marker}; border:2px solid ${c.dark};
-                display:flex;align-items:center;justify-content:center;
-                box-shadow:0 1px 3px rgba(0,0,0,0.35);">
+    <div style="position:relative; width:${size}px; height:${size}px;">
+      <div style="width:${size}px;height:${size}px;border-radius:50%;
+                  background:${c.marker}; border:2px solid ${c.dark};
+                  display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 1px 3px rgba(0,0,0,0.35);">
+      </div>
+      ${warningDot}
     </div>`;
   return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
@@ -166,7 +188,7 @@ function renderPoints() {
   allPoints
     .filter((p) => activeColors.has(p.category_color))
     .forEach((p) => {
-      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false) });
+      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false, isOverdue(p)) });
       marker.on('click', () => openSheet(p));
       marker.addTo(markersLayer);
     });
@@ -191,6 +213,7 @@ function renderMobileList() {
           <div class="name">${escapeHtml(p.name)}</div>
           <div class="meta">${escapeHtml(p.category_label)}${p.capacity_liters ? ' · ' + Number(p.capacity_liters).toLocaleString('de-DE') + ' L' : ''}</div>
         </div>
+        ${isOverdue(p) ? '<span class="overdue-badge" title="Prüfung überfällig">⚠️</span>' : ''}
       </div>`
     )
     .join('');
@@ -256,6 +279,17 @@ function openSheet(p) {
   document.getElementById('sheet-checked').textContent = p.last_checked
     ? new Date(p.last_checked).toLocaleDateString('de-DE')
     : '–';
+
+  const photoEl = document.getElementById('sheet-photo');
+  if (p.photo_url) {
+    photoEl.src = p.photo_url;
+    photoEl.style.display = 'block';
+  } else {
+    photoEl.style.display = 'none';
+  }
+
+  document.getElementById('sheet-overdue-warning').style.display = isOverdue(p) ? 'block' : 'none';
+
   document.getElementById('sheet').classList.add('open');
 }
 
@@ -273,6 +307,49 @@ document.getElementById('sheet-edit').addEventListener('click', () => {
   if (!currentSheetPoint) return;
   openForm(currentSheetPoint);
   document.getElementById('sheet').classList.remove('open');
+});
+
+// ============================================================
+// Änderungsverlauf
+// ============================================================
+const HISTORY_LABELS = {
+  created: 'Angelegt',
+  updated: 'Geändert',
+  deleted: 'Gelöscht',
+  photo_updated: 'Foto aktualisiert',
+};
+
+document.getElementById('sheet-history').addEventListener('click', async () => {
+  if (!currentSheetPoint) return;
+  const listEl = document.getElementById('history-list');
+  listEl.innerHTML = '<p class="hint">Lade Verlauf …</p>';
+  document.getElementById('history-overlay').classList.add('open');
+
+  try {
+    const entries = await api(`/api/points/${currentSheetPoint.id}/history`);
+    if (!entries.length) {
+      listEl.innerHTML = '<p class="hint">Noch keine Einträge vorhanden.</p>';
+      return;
+    }
+    listEl.innerHTML = entries
+      .map((e) => {
+        const when = new Date(e.changed_at).toLocaleString('de-DE');
+        const who = e.username ? escapeHtml(e.username) : 'Unbekannt';
+        const label = HISTORY_LABELS[e.change_type] || e.change_type;
+        return `
+          <div class="history-entry">
+            <div class="type">${label}</div>
+            <div class="meta">${when} · ${who}</div>
+          </div>`;
+      })
+      .join('');
+  } catch (err) {
+    listEl.innerHTML = '<p class="hint">Verlauf konnte nicht geladen werden.</p>';
+  }
+});
+
+document.getElementById('history-close').addEventListener('click', () => {
+  document.getElementById('history-overlay').classList.remove('open');
 });
 
 // ============================================================
@@ -301,8 +378,29 @@ function openForm(point) {
   document.getElementById('f-key').value = point?.key_deposit_note || '';
   document.getElementById('f-checked').value = point?.last_checked ? point.last_checked.substring(0, 10) : '';
 
+  document.getElementById('f-photo').value = '';
+  const preview = document.getElementById('f-photo-preview');
+  if (point?.photo_url) {
+    preview.src = point.photo_url;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+
   document.getElementById('form-overlay').classList.add('open');
 }
+
+document.getElementById('f-photo').addEventListener('change', () => {
+  const file = document.getElementById('f-photo').files[0];
+  const preview = document.getElementById('f-photo-preview');
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
 
 document.getElementById('fab-add').addEventListener('click', () => {
   placementMode = true;
@@ -342,15 +440,34 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     key_deposit_note: document.getElementById('f-key').value.trim() || null,
     last_checked: document.getElementById('f-checked').value || null,
   };
+  const photoFile = document.getElementById('f-photo').files[0];
+
+  async function uploadPhotoIfAny(pointId) {
+    if (!photoFile || !navigator.onLine) return;
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(photoFile);
+    });
+    try {
+      await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
+    } catch (err) {
+      alert('Punkt gespeichert, aber Foto-Upload ist fehlgeschlagen: ' + err.message);
+    }
+  }
 
   try {
     if (editingPointId) {
       await api('/api/points/' + editingPointId, { method: 'PUT', body: JSON.stringify(payload) });
+      await uploadPhotoIfAny(editingPointId);
     } else if (navigator.onLine) {
-      await api('/api/points', { method: 'POST', body: JSON.stringify(payload) });
+      const created = await api('/api/points', { method: 'POST', body: JSON.stringify(payload) });
+      await uploadPhotoIfAny(created.id);
     } else {
       await queuePoint(payload);
-      alert('Kein Netz – der Punkt wurde lokal gespeichert und wird automatisch übertragen, sobald wieder Verbindung besteht.');
+      alert('Kein Netz – der Punkt wurde lokal gespeichert und wird automatisch übertragen, sobald wieder Verbindung besteht.' +
+        (photoFile ? ' Das Foto muss nach der Übertragung separat ergänzt werden.' : ''));
     }
     document.getElementById('form-overlay').classList.remove('open');
     clearTempMarker();

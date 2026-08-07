@@ -46,6 +46,7 @@
     <div id="map"></div>
 
     <div id="detail-panel">
+      <img id="detail-photo" style="display:none;" alt="Foto der Örtlichkeit" />
       <h2 id="detail-title">–</h2>
       <div class="detail-row"><span>Kategorie</span><span id="detail-category">–</span></div>
       <div class="detail-row"><span>Fassungsvermögen</span><span id="detail-capacity">–</span></div>
@@ -55,11 +56,21 @@
       <div class="detail-row"><span>Telefon</span><span id="detail-phone">–</span></div>
       <div class="detail-row"><span>Schlüssel/Zugang</span><span id="detail-key">–</span></div>
       <div class="detail-row"><span>Letzte Prüfung</span><span id="detail-checked">–</span></div>
+      <p id="detail-overdue-warning" style="display:none;">⚠️ Prüfung überfällig</p>
       <div id="detail-actions">
         <button id="detail-edit">Bearbeiten</button>
+        <button id="detail-history">Verlauf</button>
         <button id="detail-delete">Löschen</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="history-overlay">
+  <div id="history-panel">
+    <button id="history-close">✕</button>
+    <h2>Änderungsverlauf</h2>
+    <div id="history-list"></div>
   </div>
 </div>
 
@@ -94,6 +105,10 @@
 
     <label>Letzte Prüfung</label>
     <input type="date" id="f-checked" />
+
+    <label>Foto (optional)</label>
+    <input type="file" id="f-photo" accept="image/*" />
+    <img id="f-photo-preview" style="display:none;" alt="Vorschau" />
 
     <div class="form-actions">
       <button type="button" class="btn-cancel" id="form-cancel">Abbrechen</button>

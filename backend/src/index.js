@@ -1,12 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import pool from './db.js';
 import { signToken, requireAuth, requireRole } from './auth.js';
 
+const UPLOAD_DIR = '/app/uploads';
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '12mb' })); // genug Spielraum für ein Handyfoto als Base64
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 // --- Beim Start: ersten Admin-Nutzer anlegen, falls noch keiner existiert ---
 async function ensureAdminUser() {
@@ -163,6 +170,52 @@ app.get('/api/points/:id/history', requireAuth, async (req, res) => {
     [req.params.id]
   );
   res.json(rows);
+});
+
+// --- Foto-Upload ---
+const ALLOWED_IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+app.post('/api/points/:id/photo', requireAuth, async (req, res) => {
+  const { photo_base64 } = req.body || {};
+  if (!photo_base64 || !photo_base64.startsWith('data:')) {
+    return res.status(400).json({ error: 'Kein gültiges Bild übermittelt.' });
+  }
+
+  const match = photo_base64.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+  if (!match || !ALLOWED_IMAGE_TYPES[match[1]]) {
+    return res.status(400).json({ error: 'Nur JPEG-, PNG- oder WebP-Bilder sind erlaubt.' });
+  }
+
+  const { rows: existing } = await pool.query('SELECT * FROM points WHERE id = $1', [req.params.id]);
+  if (!existing[0]) return res.status(404).json({ error: 'Punkt nicht gefunden.' });
+
+  const ext = ALLOWED_IMAGE_TYPES[match[1]];
+  const filename = `${req.params.id}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  const buffer = Buffer.from(match[2], 'base64');
+
+  // Grobe Größenprüfung (max. 8 MB nach Dekodierung)
+  if (buffer.length > 8 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Bild ist zu groß (max. 8 MB).' });
+  }
+
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
+
+  // Altes Foto aufräumen, falls vorhanden
+  if (existing[0].photo_url) {
+    const oldFile = path.basename(existing[0].photo_url);
+    const oldPath = path.join(UPLOAD_DIR, oldFile);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  const photoUrl = `/uploads/${filename}`;
+  await pool.query('UPDATE points SET photo_url = $1, updated_at = now() WHERE id = $2', [photoUrl, req.params.id]);
+  await pool.query(
+    `INSERT INTO point_history (point_id, changed_by, change_type, new_data)
+     VALUES ($1, $2, 'photo_updated', $3)`,
+    [req.params.id, req.user.id, JSON.stringify({ photo_url: photoUrl })]
+  );
+
+  res.json({ photo_url: photoUrl });
 });
 
 const PORT = process.env.PORT || 3000;

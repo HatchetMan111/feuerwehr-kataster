@@ -17,6 +17,10 @@
 		reverse_proxy backend:3000
 	}
 
+	handle /uploads/* {
+		reverse_proxy backend:3000
+	}
+
 	handle_path /tiles/* {
 		# overv/openstreetmap-tile-server liefert Kacheln unter /tile/{z}/{x}/{y}.png
 		rewrite * /tile{path}

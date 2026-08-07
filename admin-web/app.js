@@ -77,18 +77,52 @@ function initMap() {
   map.on('click', (e) => {
     if (document.getElementById('form-overlay').classList.contains('open')) {
       pendingClickLatLng = e.latlng;
+      placeTempMarker(e.latlng);
       document.getElementById('form-coords').textContent =
         e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
     }
   });
 }
 
-const COLORS = { teal: '#0F6E56', coral: '#993C1D', gray: '#5F5E5A' };
+let tempMarker = null;
 
-function pinIcon(colorKey) {
+function placeTempMarker(latlng) {
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.marker(latlng, { icon: pinIcon('blue', false, true), draggable: true }).addTo(map);
+  tempMarker.on('dragend', () => {
+    const pos = tempMarker.getLatLng();
+    pendingClickLatLng = pos;
+    document.getElementById('form-coords').textContent = pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5);
+  });
+}
+
+function clearTempMarker() {
+  if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+}
+
+const COLORS = { teal: '#0F6E56', coral: '#993C1D', gray: '#5F5E5A', blue: '#378ADD' };
+const OVERDUE_MONTHS = 12;
+
+function isOverdue(point) {
+  if (!point.last_checked) return true;
+  const checked = new Date(point.last_checked);
+  const limit = new Date();
+  limit.setMonth(limit.getMonth() - OVERDUE_MONTHS);
+  return checked < limit;
+}
+
+function pinIcon(colorKey, overdue, draggableLook) {
   const color = COLORS[colorKey] || COLORS.gray;
-  const html = `<div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.3);"></div>`;
-  return L.divIcon({ html, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+  const size = draggableLook ? 26 : 20;
+  const warningDot = overdue
+    ? `<div style="position:absolute; top:-2px; right:-2px; width:9px; height:9px; border-radius:50%; background:#993C1D; border:1.5px solid white;"></div>`
+    : '';
+  const html = `
+    <div style="position:relative; width:${size}px; height:${size}px;">
+      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.3);"></div>
+      ${warningDot}
+    </div>`;
+  return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
 
 async function loadCategories() {
@@ -114,6 +148,7 @@ function renderList() {
           <div class="name">${escapeHtml(p.name)}</div>
           <div class="meta">${escapeHtml(p.category_label)}${p.capacity_liters ? ' · ' + Number(p.capacity_liters).toLocaleString('de-DE') + ' L' : ''}</div>
         </div>
+        ${isOverdue(p) ? '<span class="overdue-badge" title="Prüfung überfällig">⚠️</span>' : ''}
       </div>`
     )
     .join('');
@@ -131,7 +166,7 @@ function renderList() {
 function renderMarkers() {
   markersLayer.clearLayers();
   allPoints.forEach((p) => {
-    const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color) });
+    const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, isOverdue(p)) });
     marker.on('click', () => showDetail(p));
     marker.addTo(markersLayer);
   });
@@ -157,13 +192,52 @@ function showDetail(p) {
   document.getElementById('detail-phone').textContent = p.owner_phone || '–';
   document.getElementById('detail-key').textContent = p.key_deposit_note || '–';
   document.getElementById('detail-checked').textContent = p.last_checked ? new Date(p.last_checked).toLocaleDateString('de-DE') : '–';
-  document.getElementById('detail-panel').classList.add('open');
 
+  const photoEl = document.getElementById('detail-photo');
+  if (p.photo_url) {
+    photoEl.src = p.photo_url;
+    photoEl.style.display = 'block';
+  } else {
+    photoEl.style.display = 'none';
+  }
+  document.getElementById('detail-overdue-warning').style.display = isOverdue(p) ? 'block' : 'none';
+
+  document.getElementById('detail-panel').classList.add('open');
   document.getElementById('detail-delete').style.display = localStorage.getItem('role') === 'admin' ? 'block' : 'none';
 }
 
 document.getElementById('detail-edit').addEventListener('click', () => {
   if (selectedPoint) openForm(selectedPoint);
+});
+
+const HISTORY_LABELS = { created: 'Angelegt', updated: 'Geändert', deleted: 'Gelöscht', photo_updated: 'Foto aktualisiert' };
+
+document.getElementById('detail-history').addEventListener('click', async () => {
+  if (!selectedPoint) return;
+  const listEl = document.getElementById('history-list');
+  listEl.innerHTML = '<p class="hint">Lade Verlauf …</p>';
+  document.getElementById('history-overlay').classList.add('open');
+  try {
+    const entries = await api(`/api/points/${selectedPoint.id}/history`);
+    if (!entries.length) {
+      listEl.innerHTML = '<p class="hint">Noch keine Einträge vorhanden.</p>';
+      return;
+    }
+    listEl.innerHTML = entries
+      .map((e) => {
+        const when = new Date(e.changed_at).toLocaleString('de-DE');
+        const who = e.username ? escapeHtml(e.username) : 'Unbekannt';
+        const label = HISTORY_LABELS[e.change_type] || e.change_type;
+        return `<div class="history-entry"><div class="type">${label}</div><div class="meta">${when} · ${who}</div></div>`;
+      })
+      .join('');
+  } catch (err) {
+    listEl.innerHTML = '<p class="hint">Verlauf konnte nicht geladen werden.</p>';
+  }
+});
+
+document.getElementById('history-close').addEventListener('click', () => {
+  document.getElementById('history-overlay').classList.remove('open');
 });
 
 document.getElementById('detail-delete').addEventListener('click', async () => {
@@ -186,6 +260,12 @@ function openForm(point) {
     ? point.lat.toFixed(5) + ', ' + point.lng.toFixed(5)
     : '– auf die Karte klicken –';
 
+  if (point) {
+    placeTempMarker([point.lat, point.lng]);
+  } else {
+    clearTempMarker();
+  }
+
   document.getElementById('f-name').value = point?.name || '';
   document.getElementById('f-category').value = point?.category_id || (categories[0] && categories[0].id) || '';
   document.getElementById('f-capacity').value = point?.capacity_liters || '';
@@ -196,12 +276,34 @@ function openForm(point) {
   document.getElementById('f-key').value = point?.key_deposit_note || '';
   document.getElementById('f-checked').value = point?.last_checked ? point.last_checked.substring(0, 10) : '';
 
+  document.getElementById('f-photo').value = '';
+  const preview = document.getElementById('f-photo-preview');
+  if (point?.photo_url) {
+    preview.src = point.photo_url;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+
   document.getElementById('form-overlay').classList.add('open');
 }
+
+document.getElementById('f-photo').addEventListener('change', () => {
+  const file = document.getElementById('f-photo').files[0];
+  const preview = document.getElementById('f-photo-preview');
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
 
 document.getElementById('new-point-btn').addEventListener('click', () => openForm(null));
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
+  clearTempMarker();
 });
 
 document.getElementById('point-form').addEventListener('submit', async (e) => {
@@ -223,15 +325,34 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     key_deposit_note: document.getElementById('f-key').value.trim() || null,
     last_checked: document.getElementById('f-checked').value || null,
   };
+  const photoFile = document.getElementById('f-photo').files[0];
+
+  async function uploadPhotoIfAny(pointId) {
+    if (!photoFile) return;
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(photoFile);
+    });
+    try {
+      await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
+    } catch (err) {
+      alert('Punkt gespeichert, aber Foto-Upload ist fehlgeschlagen: ' + err.message);
+    }
+  }
 
   try {
     if (editingPointId) {
       await api('/api/points/' + editingPointId, { method: 'PUT', body: JSON.stringify(payload) });
+      await uploadPhotoIfAny(editingPointId);
     } else {
-      await api('/api/points', { method: 'POST', body: JSON.stringify(payload) });
+      const created = await api('/api/points', { method: 'POST', body: JSON.stringify(payload) });
+      await uploadPhotoIfAny(created.id);
     }
     document.getElementById('form-overlay').classList.remove('open');
     document.getElementById('detail-panel').classList.remove('open');
+    clearTempMarker();
     loadPoints();
   } catch (err) {
     alert('Fehler beim Speichern: ' + err.message);
