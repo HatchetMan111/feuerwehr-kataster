@@ -9,7 +9,9 @@ const COLORS = {
   blue:  { marker: '#378ADD', ring: '#A8CDEF', dark: '#1C4A73' },
 };
 
-let map, markersLayer, categories = [], activeColors = new Set(['teal', 'coral', 'gray']);
+let map, markersLayer, categories = [];
+let categoryCursor = { teal: -1, coral: -1, gray: -1 };
+let initialFitDone = false;
 let pendingClickLatLng = null;
 let editingPointId = null;
 let placementMode = false;
@@ -85,7 +87,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 // ============================================================
 function initMapIfNeeded() {
   if (map) return;
-  map = L.map('map', { zoomControl: true }).setView([49.4875, 9.7735], 14); // Startpunkt: grob Region des Nutzers, wird angepasst
+  map = L.map('map', { zoomControl: true }).setView([51.1657, 10.4515], 6); // Deutschland-Übersicht, wird nach dem Laden der Punkte automatisch angepasst
 
   L.tileLayer('/tiles/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -175,6 +177,12 @@ async function loadPoints() {
   }
   renderPoints();
   renderMobileList();
+
+  if (!initialFitDone && allPoints.length && map) {
+    initialFitDone = true;
+    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  }
 }
 
 function escapeHtml(str) {
@@ -185,26 +193,23 @@ function escapeHtml(str) {
 
 function renderPoints() {
   markersLayer.clearLayers();
-  allPoints
-    .filter((p) => activeColors.has(p.category_color))
-    .forEach((p) => {
-      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false, isOverdue(p)) });
-      marker.on('click', () => openSheet(p));
-      marker.addTo(markersLayer);
-    });
+  allPoints.forEach((p) => {
+    const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false, isOverdue(p)) });
+    marker.on('click', () => openSheet(p));
+    marker.addTo(markersLayer);
+  });
 }
 
 function renderMobileList() {
   const container = document.getElementById('mobile-point-list');
   if (!container) return;
-  const visible = allPoints.filter((p) => activeColors.has(p.category_color));
 
-  if (!visible.length) {
-    container.innerHTML = '<div id="list-empty">Keine Punkte in dieser Auswahl.</div>';
+  if (!allPoints.length) {
+    container.innerHTML = '<div id="list-empty">Noch keine Punkte erfasst.</div>';
     return;
   }
 
-  container.innerHTML = visible
+  container.innerHTML = allPoints
     .map(
       (p) => `
       <div class="mobile-point-row" data-id="${p.id}">
@@ -232,15 +237,17 @@ function renderMobileList() {
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => {
     const color = chip.dataset.color;
-    if (activeColors.has(color)) {
-      activeColors.delete(color);
-      chip.classList.remove('active');
-    } else {
-      activeColors.add(color);
-      chip.classList.add('active');
+    const matches = allPoints.filter((p) => p.category_color === color);
+    if (!matches.length) {
+      alert('Für diese Kategorie sind noch keine Punkte erfasst.');
+      return;
     }
-    renderPoints();
-    renderMobileList();
+    categoryCursor[color] = (categoryCursor[color] + 1) % matches.length;
+    const point = matches[categoryCursor[color]];
+
+    document.querySelector('.nav-btn[data-view="map"]').click();
+    map.setView([point.lat, point.lng], 17);
+    openSheet(point);
   });
 });
 

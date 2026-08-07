@@ -70,7 +70,7 @@ if (getToken()) startApp();
 // Karte
 // ============================================================
 function initMap() {
-  map = L.map('map').setView([49.4875, 9.7735], 13);
+  map = L.map('map').setView([51.1657, 10.4515], 6); // Deutschland-Übersicht, wird nach dem Laden der Punkte automatisch angepasst
   L.tileLayer('/tiles/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap-Mitwirkende' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 
@@ -131,10 +131,18 @@ async function loadCategories() {
   select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.label}</option>`).join('');
 }
 
+let initialFitDone = false;
+
 async function loadPoints() {
   allPoints = await api('/api/points');
   renderList();
   renderMarkers();
+
+  if (!initialFitDone && allPoints.length && map) {
+    initialFitDone = true;
+    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  }
 }
 
 function renderList() {
