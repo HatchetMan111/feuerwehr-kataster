@@ -284,6 +284,12 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
 let currentSheetPoint = null;
 
 function openSheet(p) {
+  if (document.getElementById('form-overlay').classList.contains('open')) {
+    document.getElementById('form-overlay').classList.remove('open');
+    clearTempMarker();
+    renderPoints();
+  }
+
   currentSheetPoint = p;
   document.getElementById('sheet-title').textContent = p.name;
   document.getElementById('sheet-subtitle').textContent =
@@ -374,6 +380,16 @@ function openForm(point) {
   editingPointId = point ? point.id : null;
   if (point) {
     pendingClickLatLng = { lat: point.lat, lng: point.lng };
+    // Original-Marker kurz ausblenden, damit er sich nicht mit dem Temp-Marker überlagert
+    markersLayer.clearLayers();
+    allPoints
+      .filter((other) => other.id !== point.id)
+      .forEach((other) => {
+        const m = L.marker([other.lat, other.lng], { icon: pinIcon(other.category_color, false, isOverdue(other)) });
+        m.on('click', () => openSheet(other));
+        m.addTo(markersLayer);
+      });
+    placeTempMarker([point.lat, point.lng]);
   }
   // Wenn kein "point" übergeben wurde, bleibt eine bereits im Platzierungsschritt
   // gesetzte pendingClickLatLng erhalten statt überschrieben zu werden.
@@ -405,16 +421,46 @@ function openForm(point) {
   document.getElementById('form-overlay').classList.add('open');
 }
 
-document.getElementById('f-photo').addEventListener('change', () => {
+function resizeImageToDataUrl(file, maxDim = 1600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Bild konnte nicht gelesen werden.'));
+    };
+    img.src = url;
+  });
+}
+
+document.getElementById('f-photo').addEventListener('change', async () => {
   const file = document.getElementById('f-photo').files[0];
   const preview = document.getElementById('f-photo-preview');
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    preview.src = reader.result;
+  try {
+    preview.src = await resizeImageToDataUrl(file);
     preview.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    alert('Foto konnte nicht gelesen werden, bitte ein anderes wählen.');
+  }
 });
 
 document.getElementById('fab-add').addEventListener('click', () => {
@@ -433,6 +479,7 @@ document.getElementById('placement-cancel').addEventListener('click', () => {
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
   clearTempMarker();
+  renderPoints();
 });
 
 document.getElementById('point-form').addEventListener('submit', async (e) => {
@@ -459,12 +506,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
 
   async function uploadPhotoIfAny(pointId) {
     if (!photoFile || !navigator.onLine) return;
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(photoFile);
-    });
+    const base64 = document.getElementById('f-photo-preview').src; // bereits verkleinert beim Auswählen
     try {
       await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
     } catch (err) {
@@ -551,8 +593,16 @@ async function syncPendingPoints() {
     try {
       await api('/api/points', { method: 'POST', body: JSON.stringify(body) });
       await removePendingPoint(localId);
-    } catch {
-      break; // noch keine Verbindung zum Server – später erneut versuchen
+    } catch (err) {
+      if (!navigator.onLine) break; // wirklich offline, später automatisch erneut versuchen
+
+      // Verbindung besteht, aber der Server hat abgelehnt (z.B. ungültige Daten) -
+      // nicht endlos im Hintergrund weiterversuchen, sondern den Nutzer informieren.
+      alert(
+        'Ein zwischengespeicherter Punkt ("' + (body.name || 'unbenannt') + '") konnte nicht übertragen werden: ' +
+        err.message + '\nEr bleibt in der Warteschlange auf diesem Gerät.'
+      );
+      break;
     }
   }
   if (pending.length) loadPoints();

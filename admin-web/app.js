@@ -199,6 +199,14 @@ function escapeHtml(str) {
 // Detailpanel
 // ============================================================
 function showDetail(p) {
+  // Falls gerade ein anderer Punkt bearbeitet wird: Formular schließen,
+  // sonst könnte man versehentlich am falschen Punkt speichern.
+  if (document.getElementById('form-overlay').classList.contains('open')) {
+    document.getElementById('form-overlay').classList.remove('open');
+    clearTempMarker();
+    renderMarkers();
+  }
+
   selectedPoint = p;
   document.getElementById('detail-title').textContent = p.name;
   document.getElementById('detail-category').textContent = p.category_label;
@@ -278,6 +286,15 @@ function openForm(point) {
     : '– auf die Karte klicken –';
 
   if (point) {
+    // Original-Marker kurz ausblenden, damit er sich nicht mit dem Temp-Marker überlagert
+    markersLayer.clearLayers();
+    allPoints
+      .filter((other) => other.id !== point.id)
+      .forEach((other) => {
+        const m = L.marker([other.lat, other.lng], { icon: pinIcon(other.category_color, isOverdue(other)) });
+        m.on('click', () => showDetail(other));
+        m.addTo(markersLayer);
+      });
     placeTempMarker([point.lat, point.lng]);
   } else {
     clearTempMarker();
@@ -305,22 +322,53 @@ function openForm(point) {
   document.getElementById('form-overlay').classList.add('open');
 }
 
-document.getElementById('f-photo').addEventListener('change', () => {
+function resizeImageToDataUrl(file, maxDim = 1600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Bild konnte nicht gelesen werden.'));
+    };
+    img.src = url;
+  });
+}
+
+document.getElementById('f-photo').addEventListener('change', async () => {
   const file = document.getElementById('f-photo').files[0];
   const preview = document.getElementById('f-photo-preview');
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    preview.src = reader.result;
+  try {
+    preview.src = await resizeImageToDataUrl(file);
     preview.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    alert('Foto konnte nicht gelesen werden, bitte ein anderes wählen.');
+  }
 });
 
 document.getElementById('new-point-btn').addEventListener('click', () => openForm(null));
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
   clearTempMarker();
+  renderMarkers();
 });
 
 document.getElementById('point-form').addEventListener('submit', async (e) => {
@@ -346,12 +394,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
 
   async function uploadPhotoIfAny(pointId) {
     if (!photoFile) return;
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(photoFile);
-    });
+    const base64 = document.getElementById('f-photo-preview').src; // bereits verkleinert beim Auswählen
     try {
       await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
     } catch (err) {
