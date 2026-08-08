@@ -42,7 +42,7 @@ async function api(path, options = {}) {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || 'Ein Fehler ist aufgetreten.');
+    throw new Error(body.error || ('Serverfehler (Status ' + res.status + ')'));
   }
   return res.status === 204 ? null : res.json();
 }
@@ -320,7 +320,7 @@ document.getElementById('sheet-close').addEventListener('click', () => {
 
 document.getElementById('sheet-route').addEventListener('click', () => {
   if (!currentSheetPoint) return;
-  const url = `https://www.openstreetmap.org/directions?to=${currentSheetPoint.lat},${currentSheetPoint.lng}`;
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${currentSheetPoint.lat},${currentSheetPoint.lng}`;
   window.open(url, '_blank');
 });
 

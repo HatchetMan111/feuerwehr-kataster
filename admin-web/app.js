@@ -31,7 +31,7 @@ async function api(path, options = {}) {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || 'Ein Fehler ist aufgetreten.');
+    throw new Error(body.error || ('Serverfehler (Status ' + res.status + ')'));
   }
   return res.status === 204 ? null : res.json();
 }
