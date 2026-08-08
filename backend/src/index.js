@@ -188,6 +188,12 @@ app.delete('/api/points/:id', requireAuth, requireRole('admin'), async (req, res
      VALUES ($1, $2, 'deleted', $3)`,
     [req.params.id, req.user.id, JSON.stringify(old[0])]
   );
+
+  if (old[0].photo_url) {
+    const filePath = path.join(UPLOAD_DIR, path.basename(old[0].photo_url));
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+
   res.json({ ok: true });
 });
 

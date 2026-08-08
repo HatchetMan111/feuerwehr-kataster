@@ -401,7 +401,7 @@ function openForm(point) {
 
   document.getElementById('f-name').value = point?.name || '';
   document.getElementById('f-category').value = point?.category_id || (categories[0] && categories[0].id) || '';
-  document.getElementById('f-capacity').value = point?.capacity_liters || '';
+  document.getElementById('f-capacity').value = point?.capacity_liters ?? '';
   document.getElementById('f-access').value = point?.accessibility || '';
   document.getElementById('f-condition').value = point?.condition_note || '';
   document.getElementById('f-owner').value = point?.owner_name || '';
@@ -494,7 +494,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     category_id: Number(categorySelect.value),
     lat: pendingClickLatLng.lat,
     lng: pendingClickLatLng.lng,
-    capacity_liters: Number(document.getElementById('f-capacity').value) || null,
+    capacity_liters: document.getElementById('f-capacity').value === '' ? null : Number(document.getElementById('f-capacity').value),
     accessibility: document.getElementById('f-access').value.trim() || null,
     condition_note: document.getElementById('f-condition').value.trim() || null,
     owner_name: document.getElementById('f-owner').value.trim() || null,
