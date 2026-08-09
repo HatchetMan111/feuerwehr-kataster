@@ -126,6 +126,12 @@ pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash setup-tiles.sh '
 msg "Starte den Kartenserver..."
 pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && docker compose --env-file .env up -d tileserver" || true
 
+msg "Richte tägliche Speicherplatz-Prüfung ein..."
+pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash check-disk.sh"
+pct exec "$CTID" -- bash -c "
+  (crontab -l 2>/dev/null | grep -v check-disk.sh; echo '0 6 * * * cd /opt/feuerwehr-kataster && bash check-disk.sh >/dev/null 2>&1') | crontab -
+"
+
 echo ""
 echo "=================================================================="
 echo " $APP wurde erfolgreich installiert."

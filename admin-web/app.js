@@ -67,11 +67,30 @@ function startApp() {
     .then((s) => {
       document.getElementById('wehr-title').textContent = s.wehrname;
       document.getElementById('s-wehrname').value = s.wehrname;
+      document.getElementById('s-overdue-months').value = s.overdue_months;
+      if (s.overdue_months) OVERDUE_MONTHS = s.overdue_months;
+      renderList();
+      renderMarkers();
     })
     .catch(() => {});
+
+  api('/api/system-status')
+    .then((s) => {
+      if (s.warning && sessionStorage.getItem('disk-warning-dismissed') !== 'true') {
+        document.getElementById('disk-warning-percent').textContent = s.disk_percent ? ` (${s.disk_percent}% belegt)` : '';
+        document.getElementById('disk-warning').classList.add('show');
+      }
+    })
+    .catch(() => {});
+
   initMap();
   loadCategories().then(loadPoints);
 }
+
+document.getElementById('disk-warning-dismiss').addEventListener('click', () => {
+  document.getElementById('disk-warning').classList.remove('show');
+  sessionStorage.setItem('disk-warning-dismissed', 'true');
+});
 
 if (getToken()) startApp();
 
@@ -110,7 +129,7 @@ function clearTempMarker() {
 }
 
 const COLORS = { teal: '#0F6E56', coral: '#993C1D', gray: '#5F5E5A', blue: '#378ADD' };
-const OVERDUE_MONTHS = 12;
+let OVERDUE_MONTHS = 12; // Vorgabe, wird beim Laden durch den Wert aus den Einstellungen ersetzt
 
 function isOverdue(point) {
   if (!point.last_checked) return true;
@@ -446,9 +465,13 @@ const wehrnameSaveBtn = document.getElementById('wehrname-save-btn');
 if (wehrnameSaveBtn) {
   wehrnameSaveBtn.addEventListener('click', async () => {
     const wehrname = document.getElementById('s-wehrname').value.trim();
+    const overdue_months = Number(document.getElementById('s-overdue-months').value);
     try {
-      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname }) });
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname, overdue_months }) });
       document.getElementById('wehr-title').textContent = wehrname;
+      OVERDUE_MONTHS = overdue_months;
+      renderList();
+      renderMarkers();
     } catch (err) {
       alert('Fehler: ' + err.message);
     }

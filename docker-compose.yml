@@ -31,6 +31,7 @@ services:
     restart: unless-stopped
     volumes:
       - uploads_data:/app/uploads
+      - ./status:/app/status:ro
     environment:
       DB_HOST: postgis
       DB_NAME: ${DB_NAME:-kataster}

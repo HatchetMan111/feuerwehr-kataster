@@ -11,6 +11,7 @@ CREATE TABLE users (
 CREATE TABLE settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   wehrname TEXT NOT NULL DEFAULT 'Musterwehr',
+  overdue_months INTEGER NOT NULL DEFAULT 12,
   CHECK (id = 1)
 );
 

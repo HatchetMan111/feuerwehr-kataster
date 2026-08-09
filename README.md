@@ -169,6 +169,19 @@ allerdings ein Auftragsverarbeitungsvertrag. Empfehlenswert: eine kurze
 interne Notiz, wer für die Daten verantwortlich ist und wie lange sie
 aufbewahrt werden.
 
+## Speicherplatz-Überwachung
+
+`check-disk.sh` prüft täglich um 6 Uhr automatisch (per Cron, von `install.sh`
+eingerichtet) den belegten Speicherplatz des Containers. Ab 85 % Belegung
+erscheint beim nächsten Login ein Warnbanner in beiden Oberflächen. Manuell
+prüfen:
+
+```bash
+cd /opt/feuerwehr-kataster
+bash check-disk.sh
+cat status/disk.json
+```
+
 ## Backup
 
 Empfohlen: regelmäßige Proxmox-Backups des gesamten LXC-Containers über den

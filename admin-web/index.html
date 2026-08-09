@@ -44,9 +44,10 @@
     <div id="account-section">
       <h3>Mein Konto (<span id="whoami-name">–</span>)</h3>
 
-      <div id="wehrname-row" style="display:none;">
+      <div id="wehrname-row" style="display:none; flex-wrap: wrap;">
         <input type="text" id="s-wehrname" placeholder="Name der Feuerwehr" />
-        <button type="button" id="wehrname-save-btn">Wehrname speichern</button>
+        <input type="number" id="s-overdue-months" min="1" max="120" placeholder="Prüfintervall (Monate)" style="max-width:160px;" />
+        <button type="button" id="wehrname-save-btn">Speichern</button>
       </div>
 
       <form id="password-form">
@@ -61,6 +62,10 @@
   </div>
 
   <div id="map-area">
+    <div id="disk-warning" style="display:none;">
+      ⚠️ Speicherplatz auf dem Server wird knapp<span id="disk-warning-percent"></span> – bitte kümmern.
+      <button type="button" id="disk-warning-dismiss">✕</button>
+    </div>
     <div id="map"></div>
 
     <div id="detail-panel">

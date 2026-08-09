@@ -50,6 +50,14 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #map-area { flex: 1; position: relative; }
 #map { position: absolute; inset: 0; }
 
+#disk-warning {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 700;
+  display: none; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--coral-50); color: var(--coral-900); font-size: 13px; padding: 8px 16px;
+}
+#disk-warning.show { display: flex; }
+#disk-warning button { border: none; background: none; color: var(--coral-900); font-size: 15px; cursor: pointer; flex-shrink: 0; }
+
 #detail-panel {
   position: absolute; top: 16px; right: 16px; width: 320px; background: var(--surface);
   border-radius: 12px; border: 1px solid var(--border); padding: 16px; display: none;

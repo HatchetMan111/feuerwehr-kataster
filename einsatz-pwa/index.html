@@ -35,6 +35,11 @@
       <span id="offline-badge">Offline – zeige gespeicherte Daten</span>
     </div>
 
+    <div id="disk-warning" style="display:none;">
+      ⚠️ Speicherplatz auf dem Server wird knapp<span id="disk-warning-percent"></span> – bitte Admin informieren.
+      <button type="button" id="disk-warning-dismiss">✕</button>
+    </div>
+
     <div id="filters">
       <button class="chip teal" data-color="teal">Wasserquellen</button>
       <button class="chip coral" data-color="coral">Gefahren</button>
@@ -141,7 +146,10 @@
           <button type="button" id="wehrname-edit-btn" style="display:none;">Ändern</button>
         </div>
         <form id="wehrname-form" style="display:none;">
+          <label>Name der Feuerwehr</label>
           <input type="text" id="s-wehrname" />
+          <label>Prüfintervall (Monate, ab wann "überfällig" angezeigt wird)</label>
+          <input type="number" id="s-overdue-months" min="1" max="120" />
           <div class="settings-actions">
             <button type="button" class="btn-cancel" id="wehrname-cancel">Abbrechen</button>
             <button type="submit" class="btn-save">Speichern</button>

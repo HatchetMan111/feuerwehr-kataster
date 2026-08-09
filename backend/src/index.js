@@ -21,9 +21,13 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY DEFAULT 1,
       wehrname TEXT NOT NULL DEFAULT 'Musterwehr',
+      overdue_months INTEGER NOT NULL DEFAULT 12,
       CHECK (id = 1)
     )
   `);
+  // Migration für Datenbanken, die vor Einführung von overdue_months angelegt wurden
+  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS overdue_months INTEGER NOT NULL DEFAULT 12`);
+
   const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM settings');
   if (rows[0].count === 0) {
     await pool.query('INSERT INTO settings (id, wehrname) VALUES (1, $1)', [process.env.WEHRNAME || 'Musterwehr']);
@@ -98,17 +102,31 @@ app.post('/api/users', requireAuth, requireRole('admin'), async (req, res) => {
 
 // --- Einstellungen ---
 app.get('/api/settings', requireAuth, async (req, res) => {
-  const { rows } = await pool.query('SELECT wehrname FROM settings WHERE id = 1');
-  res.json(rows[0] || { wehrname: 'Musterwehr' });
+  const { rows } = await pool.query('SELECT wehrname, overdue_months FROM settings WHERE id = 1');
+  res.json(rows[0] || { wehrname: 'Musterwehr', overdue_months: 12 });
 });
 
 app.put('/api/settings', requireAuth, requireRole('admin'), async (req, res) => {
-  const { wehrname } = req.body || {};
+  const { wehrname, overdue_months } = req.body || {};
   if (!wehrname || !wehrname.trim()) {
     return res.status(400).json({ error: 'Name darf nicht leer sein.' });
   }
-  await pool.query('UPDATE settings SET wehrname = $1 WHERE id = 1', [wehrname.trim()]);
+  const months = Number(overdue_months);
+  if (!Number.isInteger(months) || months < 1 || months > 120) {
+    return res.status(400).json({ error: 'Prüfintervall muss zwischen 1 und 120 Monaten liegen.' });
+  }
+  await pool.query('UPDATE settings SET wehrname = $1, overdue_months = $2 WHERE id = 1', [wehrname.trim(), months]);
   res.json({ ok: true });
+});
+
+// --- Speicherplatz-Status (wird von check-disk.sh per Cron aktualisiert) ---
+app.get('/api/system-status', requireAuth, async (req, res) => {
+  try {
+    const raw = fs.readFileSync('/app/status/disk.json', 'utf-8');
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ disk_percent: null, warning: false, checked_at: null });
+  }
 });
 
 // --- Kategorien ---

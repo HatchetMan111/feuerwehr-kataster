@@ -63,11 +63,30 @@ function showMain() {
     .then((s) => {
       document.getElementById('wehr-title').textContent = s.wehrname;
       localStorage.setItem('wehrname_cache', s.wehrname); // fürs nächste Mal, auch offline
+      if (s.overdue_months) OVERDUE_MONTHS = s.overdue_months;
+      renderPoints();
+      renderMobileList();
     })
     .catch(() => {});
+
+  api('/api/system-status')
+    .then((s) => {
+      const banner = document.getElementById('disk-warning');
+      if (s.warning && sessionStorage.getItem('disk-warning-dismissed') !== 'true') {
+        document.getElementById('disk-warning-percent').textContent = s.disk_percent ? ` (${s.disk_percent}% belegt)` : '';
+        banner.classList.add('show');
+      }
+    })
+    .catch(() => {});
+
   initMapIfNeeded();
   loadCategories().then(loadPoints);
 }
+
+document.getElementById('disk-warning-dismiss').addEventListener('click', () => {
+  document.getElementById('disk-warning').classList.remove('show');
+  sessionStorage.setItem('disk-warning-dismissed', 'true'); // erscheint bei nächster Anmeldung wieder
+});
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -133,7 +152,7 @@ function clearTempMarker() {
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
 }
 
-const OVERDUE_MONTHS = 12; // ab wann eine Prüfung als überfällig gilt
+let OVERDUE_MONTHS = 12; // Vorgabe, wird beim Laden durch den Wert aus den Einstellungen ersetzt
 
 function isOverdue(point) {
   if (!point.last_checked) return true; // noch nie geprüft
@@ -624,6 +643,7 @@ async function loadSettingsView() {
   try {
     const settings = await api('/api/settings');
     document.getElementById('wehrname-display').textContent = settings.wehrname;
+    document.getElementById('s-overdue-months').value = settings.overdue_months;
   } catch {
     document.getElementById('wehrname-display').textContent = '–';
   }
@@ -639,11 +659,15 @@ document.getElementById('wehrname-cancel').addEventListener('click', () => {
 document.getElementById('wehrname-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const wehrname = document.getElementById('s-wehrname').value.trim();
+  const overdue_months = Number(document.getElementById('s-overdue-months').value);
   try {
-    await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname }) });
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify({ wehrname, overdue_months }) });
     document.getElementById('wehrname-display').textContent = wehrname;
     document.getElementById('wehrname-form').style.display = 'none';
     document.getElementById('wehr-title').textContent = wehrname;
+    OVERDUE_MONTHS = overdue_months;
+    renderPoints();
+    renderMobileList();
   } catch (err) {
     alert('Fehler: ' + err.message);
   }

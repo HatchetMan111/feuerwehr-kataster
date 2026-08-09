@@ -57,6 +57,16 @@ body {
 }
 #offline-badge.show { display: inline-block; }
 
+#disk-warning {
+  display: none; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--coral-50); color: var(--coral-900); font-size: 13px; padding: 8px 16px;
+  flex-shrink: 0;
+}
+#disk-warning.show { display: flex; }
+#disk-warning button {
+  border: none; background: none; color: var(--coral-900); font-size: 15px; cursor: pointer; flex-shrink: 0;
+}
+
 /* --- Filter chips --- */
 #filters { display: flex; gap: 8px; padding: 10px 16px; background: var(--surface); overflow-x: auto; flex-shrink: 0; }
 .chip {
