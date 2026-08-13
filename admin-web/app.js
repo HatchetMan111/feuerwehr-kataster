@@ -201,11 +201,13 @@ function renderList() {
 
 function renderMarkers() {
   markersLayer.clearLayers();
-  allPoints.forEach((p) => {
-    const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, isOverdue(p)) });
-    marker.on('click', () => showDetail(p));
-    marker.addTo(markersLayer);
-  });
+  allPoints
+    .filter((p) => p.id !== editingPointId)
+    .forEach((p) => {
+      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, isOverdue(p)) });
+      marker.on('click', () => showDetail(p));
+      marker.addTo(markersLayer);
+    });
 }
 
 function escapeHtml(str) {
@@ -223,6 +225,7 @@ function showDetail(p) {
   if (document.getElementById('form-overlay').classList.contains('open')) {
     document.getElementById('form-overlay').classList.remove('open');
     clearTempMarker();
+    editingPointId = null;
     renderMarkers();
   }
 
@@ -305,15 +308,7 @@ function openForm(point) {
     : '– auf die Karte klicken –';
 
   if (point) {
-    // Original-Marker kurz ausblenden, damit er sich nicht mit dem Temp-Marker überlagert
-    markersLayer.clearLayers();
-    allPoints
-      .filter((other) => other.id !== point.id)
-      .forEach((other) => {
-        const m = L.marker([other.lat, other.lng], { icon: pinIcon(other.category_color, isOverdue(other)) });
-        m.on('click', () => showDetail(other));
-        m.addTo(markersLayer);
-      });
+    renderMarkers(); // blendet den bearbeiteten Punkt automatisch aus (editingPointId ist bereits gesetzt)
     placeTempMarker([point.lat, point.lng]);
   } else {
     clearTempMarker();
@@ -387,6 +382,7 @@ document.getElementById('new-point-btn').addEventListener('click', () => openFor
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
   clearTempMarker();
+  editingPointId = null;
   renderMarkers();
 });
 
@@ -432,6 +428,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     document.getElementById('form-overlay').classList.remove('open');
     document.getElementById('detail-panel').classList.remove('open');
     clearTempMarker();
+    editingPointId = null;
     loadPoints();
   } catch (err) {
     alert('Fehler beim Speichern: ' + err.message);

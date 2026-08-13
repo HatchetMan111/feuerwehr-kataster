@@ -217,11 +217,13 @@ function escapeHtml(str) {
 
 function renderPoints() {
   markersLayer.clearLayers();
-  allPoints.forEach((p) => {
-    const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false, isOverdue(p)) });
-    marker.on('click', () => openSheet(p));
-    marker.addTo(markersLayer);
-  });
+  allPoints
+    .filter((p) => p.id !== editingPointId)
+    .forEach((p) => {
+      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, false, isOverdue(p)) });
+      marker.on('click', () => openSheet(p));
+      marker.addTo(markersLayer);
+    });
 }
 
 function renderMobileList() {
@@ -306,6 +308,7 @@ function openSheet(p) {
   if (document.getElementById('form-overlay').classList.contains('open')) {
     document.getElementById('form-overlay').classList.remove('open');
     clearTempMarker();
+    editingPointId = null;
     renderPoints();
   }
 
@@ -399,15 +402,7 @@ function openForm(point) {
   editingPointId = point ? point.id : null;
   if (point) {
     pendingClickLatLng = { lat: point.lat, lng: point.lng };
-    // Original-Marker kurz ausblenden, damit er sich nicht mit dem Temp-Marker überlagert
-    markersLayer.clearLayers();
-    allPoints
-      .filter((other) => other.id !== point.id)
-      .forEach((other) => {
-        const m = L.marker([other.lat, other.lng], { icon: pinIcon(other.category_color, false, isOverdue(other)) });
-        m.on('click', () => openSheet(other));
-        m.addTo(markersLayer);
-      });
+    renderPoints(); // blendet den bearbeiteten Punkt automatisch aus (editingPointId ist bereits gesetzt)
     placeTempMarker([point.lat, point.lng]);
   }
   // Wenn kein "point" übergeben wurde, bleibt eine bereits im Platzierungsschritt
@@ -498,6 +493,7 @@ document.getElementById('placement-cancel').addEventListener('click', () => {
 document.getElementById('form-cancel').addEventListener('click', () => {
   document.getElementById('form-overlay').classList.remove('open');
   clearTempMarker();
+  editingPointId = null;
   renderPoints();
 });
 
@@ -547,6 +543,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     }
     document.getElementById('form-overlay').classList.remove('open');
     clearTempMarker();
+    editingPointId = null;
     loadPoints();
   } catch (err) {
     if (!navigator.onLine) {
@@ -554,6 +551,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
       alert('Kein Netz – der Punkt wurde lokal gespeichert und wird automatisch übertragen, sobald wieder Verbindung besteht.');
       document.getElementById('form-overlay').classList.remove('open');
       clearTempMarker();
+      editingPointId = null;
     } else {
       alert('Fehler beim Speichern: ' + err.message);
     }
