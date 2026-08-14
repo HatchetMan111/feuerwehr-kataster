@@ -35,8 +35,9 @@ body {
 #login-screen p { color: var(--text-secondary); margin: 0 0 8px; font-size: 14px; }
 #login-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
 #login-form input {
-  height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 15px;
+  height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 14px; font-size: 16px;
 }
+#login-form input::placeholder { color: var(--text-secondary); opacity: 1; }
 #login-form button {
   height: 42px; border: none; border-radius: 8px; background: var(--blue-600); color: white;
   font-size: 15px; font-weight: 500; cursor: pointer;
@@ -139,8 +140,9 @@ body {
 #wehrname-display-row button { border: none; background: var(--gray-50); color: var(--gray-900); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
 #wehrname-form, #password-form { display: flex; flex-direction: column; gap: 8px; }
 #wehrname-form input, #password-form input {
-  height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 14px;
+  height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 14px; font-size: 16px;
 }
+#wehrname-form input::placeholder, #password-form input::placeholder { color: var(--text-secondary); opacity: 1; }
 .settings-actions { display: flex; gap: 8px; }
 .settings-actions button {
   flex: 1; height: 38px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; cursor: pointer;
@@ -204,18 +206,21 @@ body {
   max-width: 480px; margin: 0 auto; pointer-events: auto;
   max-height: 88vh; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: 14px;
 }
-#point-form h2 { font-size: 17px; font-weight: 500; margin: 0 0 4px; }
-#point-form label { font-size: 13px; color: var(--text-secondary); margin-bottom: -8px; }
+#point-form h2 { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+#point-form label { font-size: 14px; color: var(--text-secondary); margin-bottom: -6px; }
 #point-form input, #point-form select, #point-form textarea {
-  height: 42px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 15px;
-  font-family: inherit;
+  height: 48px; border: 1px solid var(--border); border-radius: 8px; padding: 0 14px; font-size: 16px;
+  font-family: inherit; color: var(--text-primary); width: 100%; box-sizing: border-box;
 }
-#point-form textarea { height: 64px; padding: 10px 12px; resize: vertical; }
-#point-form .hint { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+#point-form input::placeholder, #point-form textarea::placeholder {
+  color: var(--text-secondary); opacity: 1; /* Safari setzt sonst eine geringere Deckkraft */
+}
+#point-form textarea { height: 76px; padding: 12px 14px; resize: vertical; }
+#point-form .hint { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
 #f-photo-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; }
 #point-form .form-actions { display: flex; gap: 8px; margin-top: 8px; }
 #point-form .form-actions button {
-  flex: 1; height: 42px; border-radius: 10px; border: none; font-size: 14px; font-weight: 500; cursor: pointer;
+  flex: 1; height: 48px; border-radius: 10px; border: none; font-size: 16px; font-weight: 500; cursor: pointer;
 }
 #point-form .btn-save { background: var(--blue-600); color: white; }
 #point-form .btn-cancel { background: var(--gray-50); color: var(--gray-900); }
