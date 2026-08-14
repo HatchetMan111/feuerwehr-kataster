@@ -51,7 +51,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #map { position: absolute; inset: 0; }
 
 #disk-warning {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 700;
+  position: absolute; top: 0; left: 0; right: 0; z-index: 1150;
   display: none; align-items: center; justify-content: space-between; gap: 10px;
   background: var(--coral-50); color: var(--coral-900); font-size: 13px; padding: 8px 16px;
 }
@@ -60,7 +60,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 
 #detail-panel {
   position: absolute; top: 16px; right: 16px; width: 320px; background: var(--surface);
-  border-radius: 12px; border: 1px solid var(--border); padding: 16px; display: none;
+  border-radius: 12px; border: 1px solid var(--border); padding: 16px; display: none; z-index: 1100;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 #detail-panel.open { display: block; }
@@ -79,12 +79,12 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 /* --- Änderungsverlauf --- */
 #history-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none;
-  align-items: center; justify-content: center; z-index: 950;
+  align-items: center; justify-content: center; z-index: 1300;
 }
 #history-overlay.open { display: flex; }
 #deleted-points-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none;
-  align-items: center; justify-content: center; z-index: 950;
+  align-items: center; justify-content: center; z-index: 1300;
 }
 #deleted-points-overlay.open { display: flex; }
 #history-panel, .modal-panel {
@@ -104,7 +104,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 .history-entry .meta { color: var(--text-secondary); font-size: 12px; }
 
-#form-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 900; pointer-events: none; }
+#form-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1250; pointer-events: none; }
 #form-overlay.open { display: flex; }
 #point-form { background: var(--surface); border-radius: 12px; padding: 22px; width: min(460px, 92vw); max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 13px; pointer-events: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
 #point-form h2 { font-size: 17px; font-weight: 500; margin: 0 0 4px; }
