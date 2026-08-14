@@ -197,7 +197,12 @@ app.put('/api/points/:id', requireAuth, async (req, res) => {
 
 // Löschen nur für Admins - Gruppenführer können anlegen/bearbeiten, aber nichts endgültig entfernen
 app.delete('/api/points/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const { rows: old } = await pool.query('SELECT * FROM points WHERE id = $1', [req.params.id]);
+  const { rows: old } = await pool.query(
+    `SELECT p.*, ST_X(geom) AS lng, ST_Y(geom) AS lat, c.label AS category_label
+     FROM points p JOIN categories c ON c.id = p.category_id
+     WHERE p.id = $1`,
+    [req.params.id]
+  );
   if (!old[0]) return res.status(404).json({ error: 'Punkt nicht gefunden.' });
 
   await pool.query('DELETE FROM points WHERE id = $1', [req.params.id]);
@@ -225,6 +230,47 @@ app.get('/api/points/:id/history', requireAuth, async (req, res) => {
     [req.params.id]
   );
   res.json(rows);
+});
+
+// Gelöschte Punkte einsehen (Daten bleiben im Verlauf erhalten, auch nach dem Löschen)
+app.get('/api/points/deleted', requireAuth, requireRole('admin'), async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT h.point_id, h.old_data, h.changed_at, u.username
+    FROM point_history h
+    LEFT JOIN users u ON u.id = h.changed_by
+    WHERE h.change_type = 'deleted'
+    ORDER BY h.changed_at DESC
+  `);
+  res.json(rows);
+});
+
+// Gelöschten Punkt als neuen Punkt wiederherstellen (Foto muss ggf. neu hochgeladen werden)
+app.post('/api/points/deleted/:pointId/restore', requireAuth, requireRole('admin'), async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT old_data FROM point_history WHERE point_id = $1 AND change_type = 'deleted' ORDER BY changed_at DESC LIMIT 1`,
+    [req.params.pointId]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Kein gelöschter Punkt mit dieser ID gefunden.' });
+  const d = rows[0].old_data;
+
+  const { rows: created } = await pool.query(
+    `INSERT INTO points
+       (name, category_id, geom, capacity_liters, accessibility, condition_note,
+        owner_name, owner_phone, key_deposit_note, last_checked, created_by)
+     VALUES
+       ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING id`,
+    [d.name, d.category_id, d.lng, d.lat, d.capacity_liters, d.accessibility, d.condition_note,
+     d.owner_name, d.owner_phone, d.key_deposit_note, d.last_checked, req.user.id]
+  );
+
+  await pool.query(
+    `INSERT INTO point_history (point_id, changed_by, change_type, new_data)
+     VALUES ($1, $2, 'restored', $3)`,
+    [created[0].id, req.user.id, JSON.stringify(d)]
+  );
+
+  res.status(201).json({ id: created[0].id });
 });
 
 // --- Foto-Upload ---

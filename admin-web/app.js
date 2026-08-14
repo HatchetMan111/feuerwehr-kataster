@@ -257,7 +257,7 @@ document.getElementById('detail-edit').addEventListener('click', () => {
   if (selectedPoint) openForm(selectedPoint);
 });
 
-const HISTORY_LABELS = { created: 'Angelegt', updated: 'Geändert', deleted: 'Gelöscht', photo_updated: 'Foto aktualisiert' };
+const HISTORY_LABELS = { created: 'Angelegt', updated: 'Geändert', deleted: 'Gelöscht', photo_updated: 'Foto aktualisiert', restored: 'Wiederhergestellt' };
 
 document.getElementById('detail-history').addEventListener('click', async () => {
   if (!selectedPoint) return;
@@ -285,6 +285,62 @@ document.getElementById('detail-history').addEventListener('click', async () => 
 
 document.getElementById('history-close').addEventListener('click', () => {
   document.getElementById('history-overlay').classList.remove('open');
+});
+
+// ============================================================
+// Gelöschte Punkte (nur Admin)
+// ============================================================
+const deletedPointsBtn = document.getElementById('deleted-points-btn');
+if (deletedPointsBtn) {
+  deletedPointsBtn.addEventListener('click', async () => {
+    const listEl = document.getElementById('deleted-points-list');
+    listEl.innerHTML = '<p class="hint">Lade …</p>';
+    document.getElementById('deleted-points-overlay').classList.add('open');
+
+    try {
+      const entries = await api('/api/points/deleted');
+      if (!entries.length) {
+        listEl.innerHTML = '<p class="hint">Keine gelöschten Punkte vorhanden.</p>';
+        return;
+      }
+      listEl.innerHTML = entries
+        .map((e) => {
+          const d = e.old_data || {};
+          const when = new Date(e.changed_at).toLocaleString('de-DE');
+          const who = e.username ? escapeHtml(e.username) : 'Unbekannt';
+          const category = categories.find((c) => c.id === d.category_id);
+          return `
+            <div class="deleted-point-entry" data-point-id="${e.point_id}">
+              <div class="name">${escapeHtml(d.name || 'Unbenannt')}</div>
+              <div class="meta">${category ? escapeHtml(category.label) : ''} · gelöscht am ${when} von ${who}</div>
+              <button type="button" class="restore-btn">Wiederherstellen</button>
+            </div>`;
+        })
+        .join('');
+
+      listEl.querySelectorAll('.restore-btn').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          const entry = e.target.closest('.deleted-point-entry');
+          const pointId = entry.dataset.pointId;
+          if (!confirm('Diesen Punkt wieder als neuen Punkt anlegen?')) return;
+          try {
+            await api(`/api/points/deleted/${pointId}/restore`, { method: 'POST' });
+            document.getElementById('deleted-points-overlay').classList.remove('open');
+            loadPoints();
+            alert('Punkt wurde wiederhergestellt.');
+          } catch (err) {
+            alert('Fehler: ' + err.message);
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = '<p class="hint">Gelöschte Punkte konnten nicht geladen werden.</p>';
+    }
+  });
+}
+
+document.getElementById('deleted-points-close').addEventListener('click', () => {
+  document.getElementById('deleted-points-overlay').classList.remove('open');
 });
 
 document.getElementById('detail-delete').addEventListener('click', async () => {
