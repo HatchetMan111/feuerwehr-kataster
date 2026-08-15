@@ -104,6 +104,10 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 .history-entry .meta { color: var(--text-secondary); font-size: 12px; }
 
+body:has(#form-overlay.open) .leaflet-control-container {
+  display: none;
+}
+
 #form-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1250; pointer-events: none; }
 #form-overlay.open { display: flex; }
 #point-form { background: var(--surface); border-radius: 12px; padding: 22px; width: min(460px, 92vw); max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 13px; pointer-events: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }

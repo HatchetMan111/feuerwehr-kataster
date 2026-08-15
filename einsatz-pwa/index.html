@@ -92,36 +92,44 @@
           <h2 id="form-title">Neuen Punkt anlegen</h2>
           <p class="hint">Position: <span id="form-coords">– noch keine Position –</span> (zum Ändern erneut tippen oder den Marker ziehen)</p>
 
-          <label>Name</label>
-          <input type="text" id="f-name" placeholder="z.B. Löschteich Amtshof" required />
+          <div class="form-section">
+            <label>Name</label>
+            <input type="text" id="f-name" placeholder="z.B. Löschteich Amtshof" required />
 
-          <label>Kategorie</label>
-          <select id="f-category" required></select>
+            <label>Kategorie</label>
+            <select id="f-category" required></select>
 
-          <label>Fassungsvermögen (Liter)</label>
-          <input type="number" id="f-capacity" placeholder="z.B. 80000" />
+            <label>Fassungsvermögen (Liter)</label>
+            <input type="number" inputmode="numeric" id="f-capacity" placeholder="z.B. 80000" />
+          </div>
 
-          <label>Zugänglichkeit</label>
-          <input type="text" id="f-access" placeholder="z.B. LKW-tauglich, Saugschlauch 110mm" />
+          <div class="form-section">
+            <label>Zugänglichkeit</label>
+            <input type="text" id="f-access" placeholder="z.B. LKW-tauglich, Saugschlauch 110mm" />
 
-          <label>Zustand / Bemerkung</label>
-          <textarea id="f-condition" placeholder="z.B. verlandet im Sommer"></textarea>
+            <label>Zustand / Bemerkung</label>
+            <textarea id="f-condition" placeholder="z.B. verlandet im Sommer"></textarea>
 
-          <label>Eigentümer</label>
-          <input type="text" id="f-owner" placeholder="Name" />
+            <label>Schlüssel-Depot / Zugang</label>
+            <input type="text" id="f-key" placeholder="z.B. Schlüsselrohr am Hoftor" />
+          </div>
 
-          <label>Telefonnummer Eigentümer</label>
-          <input type="text" id="f-phone" placeholder="Telefonnummer" />
+          <div class="form-section">
+            <label>Eigentümer</label>
+            <input type="text" id="f-owner" placeholder="Name" />
 
-          <label>Schlüssel-Depot / Zugang</label>
-          <input type="text" id="f-key" placeholder="z.B. Schlüsselrohr am Hoftor" />
+            <label>Telefonnummer Eigentümer</label>
+            <input type="tel" id="f-phone" placeholder="Telefonnummer" />
+          </div>
 
-          <label>Letzte Prüfung</label>
-          <input type="date" id="f-checked" />
+          <div class="form-section">
+            <label>Letzte Prüfung</label>
+            <input type="date" id="f-checked" />
 
-          <label>Foto (optional)</label>
-          <input type="file" id="f-photo" accept="image/*" capture="environment" />
-          <img id="f-photo-preview" style="display:none;" alt="Vorschau" />
+            <label>Foto (optional)</label>
+            <input type="file" id="f-photo" accept="image/*" capture="environment" />
+            <img id="f-photo-preview" style="display:none;" alt="Vorschau" />
+          </div>
 
           <div class="form-actions">
             <button type="button" class="btn-cancel" id="form-cancel">Abbrechen</button>
