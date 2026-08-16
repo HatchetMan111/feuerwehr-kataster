@@ -113,7 +113,14 @@ body:has(#form-overlay.open) .leaflet-control-container {
 #point-form { background: var(--surface); border-radius: 12px; padding: 22px; width: min(460px, 92vw); max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 13px; pointer-events: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
 #point-form h2 { font-size: 17px; font-weight: 500; margin: 0 0 4px; }
 #point-form label { font-size: 13px; color: var(--text-secondary); margin-bottom: -7px; }
-#point-form input, #point-form select, #point-form textarea { height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 14px; font-family: inherit; }
+#point-form input, #point-form select, #point-form textarea { height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 14px; font-family: inherit; background: var(--surface); box-sizing: border-box; width: 100%; }
+#point-form select {
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235f5e5a' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+}
 #point-form textarea { height: 60px; padding: 10px 12px; resize: vertical; }
 #point-form .hint { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
 #f-photo-preview { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; }

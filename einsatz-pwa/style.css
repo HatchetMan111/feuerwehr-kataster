@@ -237,7 +237,14 @@ body {
 #point-form input::placeholder, #point-form textarea::placeholder {
   color: var(--text-secondary); opacity: 1; /* Safari setzt sonst eine geringere Deckkraft */
 }
-#point-form textarea { height: 76px; padding: 12px 14px; resize: vertical; }
+#point-form select {
+  -webkit-appearance: none; appearance: none; /* entfernt iOS' grauen Standard-Look */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235f5e5a' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+#point-form textarea { height: 90px; padding: 12px 14px; resize: none; }
 #point-form input[type="file"] { height: auto; padding: 10px 14px; font-size: 14px; }
 
 #f-photo-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; margin-top: 8px; }
