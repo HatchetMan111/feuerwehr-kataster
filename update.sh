@@ -14,6 +14,6 @@ echo "Hole neueste Version aus dem Repository..."
 git pull
 
 echo "Baue Container neu und starte die Anwendung..."
-docker compose --env-file .env up -d --build
+docker compose --env-file .env up -d --force-recreate --build
 
 echo "Update abgeschlossen. Die Anwendung läuft mit der neuesten Version."

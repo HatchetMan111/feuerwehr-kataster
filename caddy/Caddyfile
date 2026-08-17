@@ -13,25 +13,51 @@
 	# Ein einmal erzeugtes, festes Zertifikat mit der IP als SAN umgeht das.
 	tls /certs/selfsigned.crt /certs/selfsigned.key
 
+	# keepalive off bei allen Diensten: erzwingt eine frische Verbindung (und damit
+	# frische Namensauflösung) bei jeder Anfrage. Ohne das hielt Caddy nach einem
+	# Container-Neustart (z.B. "docker compose up --build einsatz-pwa") teils noch
+	# Verbindungen zur alten, bereits ersetzten Container-Instanz offen - dadurch
+	# kamen Updates nicht an, obwohl der neue Code längst im Container lag.
+
 	handle /api/* {
-		reverse_proxy backend:3000
+		reverse_proxy backend:3000 {
+			transport http {
+				keepalive off
+			}
+		}
 	}
 
 	handle /uploads/* {
-		reverse_proxy backend:3000
+		reverse_proxy backend:3000 {
+			transport http {
+				keepalive off
+			}
+		}
 	}
 
 	handle_path /tiles/* {
 		# overv/openstreetmap-tile-server liefert Kacheln unter /tile/{z}/{x}/{y}.png
 		rewrite * /tile{path}
-		reverse_proxy tileserver:80
+		reverse_proxy tileserver:80 {
+			transport http {
+				keepalive off
+			}
+		}
 	}
 
 	handle_path /admin/* {
-		reverse_proxy admin-web:80
+		reverse_proxy admin-web:80 {
+			transport http {
+				keepalive off
+			}
+		}
 	}
 
 	handle {
-		reverse_proxy einsatz-pwa:80
+		reverse_proxy einsatz-pwa:80 {
+			transport http {
+				keepalive off
+			}
+		}
 	}
 }

@@ -126,6 +126,14 @@ Im Container, im Projektordner:
 bash update.sh
 ```
 
+Das Skript holt die neueste Version und baut **alle** Container neu (auch
+Caddy). Bewusst so, nicht nur einzelne Dienste: Caddy hält Verbindungen zu
+den anderen Containern offen und hat früher teils noch mit einer bereits
+ersetzten, alten Container-Instanz weitergeredet, wenn nur einzelne Dienste
+neu gebaut wurden – Updates kamen dann nicht an, obwohl der neue Code längst
+da war. Das ist inzwischen durch `keepalive off` im Caddyfile strukturell
+behoben, `bash update.sh` bleibt trotzdem der empfohlene, unkomplizierteste Weg.
+
 ## Nutzerverwaltung
 
 - Rolle **Admin**: kann Punkte endgültig löschen und neue Nutzer anlegen
