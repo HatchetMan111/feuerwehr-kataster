@@ -433,6 +433,7 @@ function openForm(point) {
   }
 
   document.getElementById('form-overlay').classList.add('open');
+  document.getElementById('point-form').scrollTop = 0;
 }
 
 function resizeImageToDataUrl(file, maxDim = 1600, quality = 0.8) {
@@ -718,4 +719,23 @@ if ('serviceWorker' in navigator) {
       console.warn('Service Worker konnte nicht registriert werden:', err)
     );
   });
+}
+
+// ============================================================
+// Formular-Höhe an die tatsächlich sichtbare Fläche koppeln
+// (wichtig auf iOS: die Tastatur verkleinert den sichtbaren Bereich,
+// ohne dass sich vh-Einheiten mitändern - sonst rutscht das unter der
+// Tastatur "abgeschnittene" Formular außer Reichweite)
+// ============================================================
+if (window.visualViewport) {
+  const adjustFormViewport = () => {
+    const availablePx = Math.round(window.visualViewport.height * 0.92);
+    ['point-form', 'sheet', 'history-panel'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.maxHeight = availablePx + 'px';
+    });
+  };
+  window.visualViewport.addEventListener('resize', adjustFormViewport);
+  window.visualViewport.addEventListener('scroll', adjustFormViewport);
+  adjustFormViewport();
 }
