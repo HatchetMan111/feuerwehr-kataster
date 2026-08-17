@@ -424,6 +424,7 @@ function openForm(point) {
   document.getElementById('f-checked').value = point?.last_checked ? point.last_checked.substring(0, 10) : '';
 
   document.getElementById('f-photo').value = '';
+  photoResizePromise = null;
   const preview = document.getElementById('f-photo-preview');
   if (point?.photo_url) {
     preview.src = point.photo_url;
@@ -466,16 +467,25 @@ function resizeImageToDataUrl(file, maxDim = 1600, quality = 0.8) {
   });
 }
 
-document.getElementById('f-photo').addEventListener('change', async () => {
+let photoResizePromise = null;
+
+document.getElementById('f-photo').addEventListener('change', () => {
   const file = document.getElementById('f-photo').files[0];
   const preview = document.getElementById('f-photo-preview');
-  if (!file) return;
-  try {
-    preview.src = await resizeImageToDataUrl(file);
-    preview.style.display = 'block';
-  } catch {
-    alert('Foto konnte nicht gelesen werden, bitte ein anderes wählen.');
+  if (!file) {
+    photoResizePromise = null;
+    return;
   }
+  photoResizePromise = resizeImageToDataUrl(file)
+    .then((dataUrl) => {
+      preview.src = dataUrl;
+      preview.style.display = 'block';
+      return dataUrl;
+    })
+    .catch((err) => {
+      alert('Foto konnte nicht gelesen werden, bitte ein anderes wählen.');
+      throw err;
+    });
 });
 
 document.getElementById('fab-add').addEventListener('click', () => {
@@ -522,11 +532,11 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
 
   async function uploadPhotoIfAny(pointId) {
     if (!photoFile || !navigator.onLine) return;
-    const base64 = document.getElementById('f-photo-preview').src; // bereits verkleinert beim Auswählen
     try {
+      const base64 = await photoResizePromise; // wartet auf die fertige Verkleinerung, egal wie schnell gespeichert wurde
       await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
     } catch (err) {
-      alert('Punkt gespeichert, aber Foto-Upload ist fehlgeschlagen: ' + err.message);
+      alert('Punkt gespeichert, aber Foto-Upload ist fehlgeschlagen: ' + (err?.message || 'Unbekannter Fehler'));
     }
   }
 
