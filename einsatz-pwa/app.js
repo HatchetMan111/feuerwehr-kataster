@@ -282,6 +282,16 @@ document.querySelectorAll('.chip').forEach((chip) => {
 // ============================================================
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    // Offene Fenster schließen, damit der Tab-Wechsel immer zu einer sauberen Ansicht führt
+    document.getElementById('sheet').classList.remove('open');
+    document.getElementById('history-overlay').classList.remove('open');
+    if (document.getElementById('form-overlay').classList.contains('open')) {
+      document.getElementById('form-overlay').classList.remove('open');
+      clearTempMarker();
+      editingPointId = null;
+      renderPoints();
+    }
+
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const view = btn.dataset.view;
@@ -334,6 +344,7 @@ function openSheet(p) {
   document.getElementById('sheet-overdue-warning').style.display = isOverdue(p) ? 'block' : 'none';
 
   document.getElementById('sheet').classList.add('open');
+  document.getElementById('sheet').scrollTop = 0;
 }
 
 document.getElementById('sheet-close').addEventListener('click', () => {
