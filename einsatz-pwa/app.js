@@ -285,6 +285,7 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     // Offene Fenster schließen, damit der Tab-Wechsel immer zu einer sauberen Ansicht führt
     document.getElementById('sheet').classList.remove('open');
     document.getElementById('history-overlay').classList.remove('open');
+    document.getElementById('photo-lightbox').classList.remove('open');
     if (document.getElementById('form-overlay').classList.contains('open')) {
       document.getElementById('form-overlay').classList.remove('open');
       clearTempMarker();
@@ -349,6 +350,19 @@ function openSheet(p) {
 
 document.getElementById('sheet-close').addEventListener('click', () => {
   document.getElementById('sheet').classList.remove('open');
+});
+
+document.getElementById('sheet-photo').addEventListener('click', () => {
+  const src = document.getElementById('sheet-photo').src;
+  if (!src) return;
+  document.getElementById('photo-lightbox-img').src = src;
+  document.getElementById('photo-lightbox').classList.add('open');
+});
+document.getElementById('photo-lightbox-close').addEventListener('click', () => {
+  document.getElementById('photo-lightbox').classList.remove('open');
+});
+document.getElementById('photo-lightbox').addEventListener('click', (e) => {
+  if (e.target.id === 'photo-lightbox') document.getElementById('photo-lightbox').classList.remove('open');
 });
 
 document.getElementById('sheet-route').addEventListener('click', () => {
