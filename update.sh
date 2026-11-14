@@ -14,6 +14,9 @@ echo "Hole neueste Version aus dem Repository..."
 git pull
 
 echo "Baue Container neu und starte die Anwendung..."
-docker compose --env-file .env up -d --force-recreate --build
+# Bewusst NUR die Anwendungs-Dienste: der Tileserver läuft erst nach dem
+# Import von Kartenmaterial (setup-tiles.sh) und würde ohne dessen PBF-Datei
+# nur crash-loop'en, wenn er hier unabsichtlich mitgestartet wird.
+docker compose --env-file .env up -d --force-recreate --build postgis backend admin-web einsatz-pwa caddy
 
 echo "Update abgeschlossen. Die Anwendung läuft mit der neuesten Version."
