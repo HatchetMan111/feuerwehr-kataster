@@ -15,6 +15,7 @@
 
   <!-- Login -->
   <div id="login-screen">
+    <img id="login-logo" src="icons/icon-192.png" alt="" />
     <h1>Feuerwehr-Kataster</h1>
     <p>Bitte mit deinem Zugang anmelden.</p>
     <form id="login-form">
@@ -32,7 +33,15 @@
         <h1 id="wehr-title">Feuerwehr-Kataster</h1>
         <p id="wehr-subtitle">Löschwasser &amp; Einsatzpunkte</p>
       </div>
-      <span id="offline-badge">Offline – zeige gespeicherte Daten</span>
+      <div id="topbar-actions">
+        <span id="offline-badge">Offline – zeige gespeicherte Daten</span>
+        <!-- Ansichtswechsel für große Bildschirme (statt der Bottom-Navigation) -->
+        <div id="desktop-nav">
+          <button class="nav-btn active" data-view="map"><span class="nav-icon">🗺️</span><span>Karte</span></button>
+          <button class="nav-btn" data-view="list"><span class="nav-icon">📋</span><span>Liste</span></button>
+          <button class="nav-btn" data-view="settings"><span class="nav-icon">⚙️</span><span>Mehr</span></button>
+        </div>
+      </div>
     </div>
 
     <div id="disk-warning" style="display:none;">

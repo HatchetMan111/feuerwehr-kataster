@@ -253,11 +253,47 @@ function renderMobileList() {
     row.addEventListener('click', () => {
       const point = allPoints.find((p) => p.id === Number(row.dataset.id));
       if (!point) return;
-      document.querySelector('.nav-btn[data-view="map"]').click();
-      map.setView([point.lat, point.lng], 17);
-      openSheet(point);
+      jumpToPoint(point);
     });
   });
+}
+
+// ============================================================
+// Sprung zu einem Punkt (aus Liste oder Filter-Chips):
+// öffnet die Detailkarte UND verschiebt die Kartenansicht so,
+// dass der Marker nicht unter der Detailkarte verschwindet
+// ============================================================
+function jumpToPoint(point, zoom = 17) {
+  document.querySelector('.nav-btn[data-view="map"]').click();
+  if (map) map.invalidateSize(); // Karte kam evtl. gerade aus display:none
+  openSheet(point);
+  panMarkerIntoView(point, zoom);
+}
+
+function panMarkerIntoView(latlng, zoom) {
+  if (!map) return;
+  const sheetEl = document.getElementById('sheet');
+  if (!sheetEl.classList.contains('open')) return;
+  // Gemessen wird am Karten-Container (nicht am Fenster): die Karte liegt
+  // unter Topbar/Chips bzw. neben dem Seitenpanel, ihr Zentrum ist also
+  // nicht die Fenstermitte.
+  const mapRect = document.getElementById('map').getBoundingClientRect();
+  const desktop = window.matchMedia('(min-width: 900px)').matches;
+  const target = map.project(latlng, zoom);
+  let adjusted = target;
+  if (desktop) {
+    // Detailkarte liegt rechts als Seitenpanel -> Marker links davon halten
+    const wantX = mapRect.width - Math.min(sheetEl.offsetWidth, 420) - 16 - 24;
+    const delta = wantX - mapRect.width / 2;
+    adjusted = target.subtract([delta, 0]);
+  } else {
+    // Detailkarte liegt unten -> Marker oberhalb des Sheets halten
+    const height = Math.min(sheetEl.offsetHeight, window.innerHeight * 0.6);
+    const wantY = mapRect.height - height - 24;
+    const delta = wantY - mapRect.height / 2;
+    adjusted = target.subtract([0, delta]);
+  }
+  map.setView(map.unproject(adjusted, zoom), zoom);
 }
 
 document.querySelectorAll('.chip').forEach((chip) => {
@@ -271,9 +307,7 @@ document.querySelectorAll('.chip').forEach((chip) => {
     categoryCursor[color] = (categoryCursor[color] + 1) % matches.length;
     const point = matches[categoryCursor[color]];
 
-    document.querySelector('.nav-btn[data-view="map"]').click();
-    map.setView([point.lat, point.lng], 17);
-    openSheet(point);
+    jumpToPoint(point);
   });
 });
 
@@ -507,9 +541,13 @@ document.getElementById('f-photo').addEventListener('change', () => {
       preview.style.display = 'block';
       return dataUrl;
     })
-    .catch((err) => {
+    .catch(() => {
+      // Fehler hier einmal melden und die Warteschlange leeren - beim Speichern
+      // auf das abgelehnte Bild warten zu wollen, würde sonst eine zweite,
+      // verwirrende Fehlermeldung beim Foto-Upload auslösen.
       alert('Foto konnte nicht gelesen werden, bitte ein anderes wählen.');
-      throw err;
+      photoResizePromise = null;
+      document.getElementById('f-photo').value = '';
     });
 });
 
@@ -559,6 +597,7 @@ document.getElementById('point-form').addEventListener('submit', async (e) => {
     if (!photoFile || !navigator.onLine) return;
     try {
       const base64 = await photoResizePromise; // wartet auf die fertige Verkleinerung, egal wie schnell gespeichert wurde
+      if (!base64) return; // Bild konnte vorher nicht gelesen werden (Fehler wurde bereits gemeldet)
       await api(`/api/points/${pointId}/photo`, { method: 'POST', body: JSON.stringify({ photo_base64: base64 }) });
     } catch (err) {
       alert('Punkt gespeichert, aber Foto-Upload ist fehlgeschlagen: ' + (err?.message || 'Unbekannter Fehler'));
@@ -737,6 +776,22 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 });
 
 // ============================================================
+// Esc-Taste schließt die oberste offene Ebene (komfortabel am Desktop)
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('photo-lightbox').classList.contains('open')) {
+    document.getElementById('photo-lightbox').classList.remove('open');
+  } else if (document.getElementById('history-overlay').classList.contains('open')) {
+    document.getElementById('history-overlay').classList.remove('open');
+  } else if (document.getElementById('form-overlay').classList.contains('open')) {
+    document.getElementById('form-cancel').click();
+  } else if (document.getElementById('sheet').classList.contains('open')) {
+    document.getElementById('sheet').classList.remove('open');
+  }
+});
+
+// ============================================================
 // Start
 // ============================================================
 if (getToken()) {
@@ -763,11 +818,25 @@ if ('serviceWorker' in navigator) {
 // Tastatur "abgeschnittene" Formular außer Reichweite)
 // ============================================================
 if (window.visualViewport) {
+  const desktopMQ = window.matchMedia('(min-width: 900px)');
   const adjustFormViewport = () => {
-    const availablePx = Math.round(window.visualViewport.height * 0.92);
+    // Wichtig: die Fenster liegen INNERHALB von #view-map (unter Topbar,
+    // Filter-Chips und Navigation) - die tatsächlich verfügbare Fläche ist
+    // also kleiner als das Fenster. Gleichzeitig muss auf iOS die verkleinerte
+    // Fläche bei eingeblendeter Tastatur (visualViewport) respektiert werden.
+    // Von beiden Werten gilt immer der kleinere, sonst wird die Kopfzeile
+    // des Formulars/Sheets oben hinter der Topbar abgeschnitten.
+    const viewMap = document.getElementById('view-map');
+    const containerPx = viewMap ? viewMap.clientHeight : window.innerHeight;
+    const availablePx = Math.round(Math.min(window.visualViewport.height * 0.92, containerPx - 8));
     ['point-form', 'sheet', 'history-panel'].forEach((id) => {
       const el = document.getElementById(id);
-      if (el) el.style.maxHeight = availablePx + 'px';
+      if (!el) return;
+      // Auf dem Desktop liegt das Detail-Sheet als Seitenpanel mit festem
+      // Rand (top/bottom 16px) - dort passt die 92%-Rechnung nicht mehr.
+      el.style.maxHeight = (id === 'sheet' && desktopMQ.matches)
+        ? Math.max(200, Math.min(containerPx - 32, availablePx)) + 'px'
+        : availablePx + 'px';
     });
   };
   window.visualViewport.addEventListener('resize', adjustFormViewport);

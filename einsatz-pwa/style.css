@@ -12,6 +12,8 @@
 
 * { box-sizing: border-box; }
 
+:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; }
+
 html, body { height: 100%; overscroll-behavior: none; touch-action: none; }
 body {
   margin: 0;
@@ -29,9 +31,14 @@ body {
 /* --- Login --- */
 #login-screen {
   display: flex; flex-direction: column; justify-content: center; align-items: center;
-  position: fixed; inset: 0; padding: 24px; gap: 16px; background: var(--surface);
+  position: fixed; inset: 0; padding: 24px; gap: 16px;
+  background: linear-gradient(180deg, var(--teal-50) 0%, var(--surface) 38%);
 }
-#login-screen h1 { font-size: 20px; font-weight: 500; margin: 0; }
+#login-logo {
+  width: 72px; height: 72px; border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(4, 52, 44, 0.18);
+}
+#login-screen h1 { font-size: 20px; font-weight: 600; margin: 0; }
 #login-screen p { color: var(--text-secondary); margin: 0 0 8px; font-size: 14px; }
 #login-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
 #login-form input {
@@ -52,6 +59,8 @@ body {
 }
 #topbar h1 { font-size: 16px; font-weight: 500; margin: 0; }
 #topbar p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+#topbar-actions { display: flex; align-items: center; gap: 10px; }
+#desktop-nav { display: none; }
 #offline-badge {
   font-size: 11px; padding: 3px 8px; border-radius: 10px; background: var(--coral-50); color: var(--coral-900);
   display: none;
@@ -271,3 +280,51 @@ body {
 }
 #point-form .btn-save { background: var(--blue-600); color: white; }
 #point-form .btn-cancel { background: var(--gray-50); color: var(--gray-900); }
+
+/* --- Hover-Feinschliff (nur Geräte mit echter Maus) --- */
+@media (hover: hover) {
+  .chip:hover { filter: brightness(0.96); }
+  .sheet-actions button:hover,
+  #desktop-nav .nav-btn:hover { background: var(--surface-muted); }
+  .mobile-point-row:hover { background: var(--surface-muted); }
+}
+
+/* ============================================================
+   Desktop (≥900px): Detailkarte als Seitenpanel rechts, Formular
+   als zentriertes Modal, Ansichtswechsel oben statt unten
+   ============================================================ */
+@media (min-width: 900px) {
+  #bottom-nav { display: none; }
+
+  #desktop-nav { display: flex; gap: 4px; }
+  #desktop-nav .nav-btn {
+    flex-direction: row; gap: 7px; padding: 8px 14px; border-radius: 10px;
+    font-size: 13px;
+  }
+  #desktop-nav .nav-btn .nav-icon { font-size: 16px; }
+  #desktop-nav .nav-btn.active { background: var(--gray-50); }
+
+  /* Detail-Sheet: feste Karte rechts neben der Karte statt unten drüber.
+     Höhe folgt dem Inhalt (nicht gestreckt), damit kurze Karten nicht
+     als große leere Fläche wirken */
+  #sheet {
+    left: auto; top: 16px; bottom: auto; right: 16px; width: 420px; max-width: 420px;
+    border-radius: 16px;
+    transform: translateX(calc(100% + 32px));
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  #sheet.open { transform: none; }
+  #sheet-photo { max-height: 34vh; }
+
+  /* Formular: zentriertes Modal. Der dunkle "Hintergrund" ist ein großer
+     Schlagschatten, damit Mausklicks weiterhin zur Karte durchgelassen
+     werden (Position lässt sich so auch bei offenem Formular ändern) */
+  #form-overlay { align-items: center; justify-content: center; }
+  #point-form {
+    width: 520px; border-radius: 16px; padding: 24px;
+    box-shadow: 0 0 0 100vmax rgba(20, 20, 18, 0.4), 0 12px 40px rgba(0,0,0,0.3);
+  }
+
+  /* Listenansicht: als ruhige, zentrierte Spalte statt volle Breite */
+  #mobile-point-list { max-width: 860px; margin: 0 auto; }
+}

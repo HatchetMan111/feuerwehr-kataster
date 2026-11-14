@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kataster-v2';
+const CACHE_NAME = 'kataster-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -28,6 +28,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Schreibende Aufrufe (Login, Speichern, Foto-Upload): nie anfassen,
+  // immer direkt ans Netz. Muss VOR dem Daten-Cache-Zweig stehen, sonst
+  // landen z.B. POST /api/points im Cache-Zweig und cache.put() wirft
+  // einen TypeError (Cache darf nur GET-Anfragen speichern).
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
   // Kartenkacheln und Punkt-Daten: erst Cache zeigen, im Hintergrund aktualisieren
@@ -48,7 +54,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Anmeldung und schreibende Aufrufe: nie aus dem Cache beantworten
-  if (event.request.method !== 'GET') return;
 
   // App-Hülle: Netzwerk zuerst (damit Updates sofort ankommen), Cache nur als Rückfallebene wenn offline
   event.respondWith(
