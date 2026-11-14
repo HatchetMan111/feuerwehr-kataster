@@ -68,11 +68,16 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_lng DOUBLE PRECISION`);
   await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_radius INTEGER`);
 
-  const homeLat = Number(process.env.WEHR_LAT);
-  const homeLng = Number(process.env.WEHR_LNG);
+  // Wichtig: leere Umgebungsvariablen (Number('') wäre 0!) dürfen nicht als
+  // Koordinate 0/0 (Null Island) interpretiert werden
+  const latRaw = (process.env.WEHR_LAT || '').trim();
+  const lngRaw = (process.env.WEHR_LNG || '').trim();
+  const homeLat = Number(latRaw);
+  const homeLng = Number(lngRaw);
   const radiusRaw = Number(process.env.WEHR_VIEW_RADIUS);
   const homeRadius = Number.isInteger(radiusRaw) && radiusRaw > 0 ? radiusRaw : null;
-  const hasHome = Number.isFinite(homeLat) && Number.isFinite(homeLng)
+  const hasHome = latRaw !== '' && lngRaw !== ''
+    && Number.isFinite(homeLat) && Number.isFinite(homeLng)
     && Math.abs(homeLat) <= 90 && Math.abs(homeLng) <= 180;
 
   const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM settings');
