@@ -69,6 +69,16 @@ function startApp() {
       document.getElementById('s-wehrname').value = s.wehrname;
       document.getElementById('s-overdue-months').value = s.overdue_months;
       if (s.overdue_months) OVERDUE_MONTHS = s.overdue_months;
+      // Startposition übernehmen - provisional hinspringen, solange noch
+      // keine Punkte geladen sind; kommen später welche, passt fitBounds
+      const lat = Number(s.home_lat);
+      const lng = Number(s.home_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        homeView = { lat, lng, radius: Number(s.home_radius) || null };
+        if (!initialFitDone && map && !allPoints.length) {
+          map.setView([homeView.lat, homeView.lng], homeZoomFor(homeView));
+        }
+      }
       renderList();
       renderMarkers();
     })
@@ -97,8 +107,34 @@ if (getToken()) startApp();
 // ============================================================
 // Karte
 // ============================================================
+let homeView = null; // Startposition (Gerätehaus), kommt aus den Einstellungen
+
+// Zoomstufe, bei der der konfigurierte Umkreis auf die kleinere
+// Bildschirmseite passt (Fallback: feste Stufe fürs Gerätehaus-Umfeld)
+function homeZoomFor(view) {
+  const radiusKm = view && Number(view.radius) > 0 ? Number(view.radius) : null;
+  if (!radiusKm) return 13;
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  const cosLat = Math.cos(Number(view.lat) * Math.PI / 180);
+  const z = Math.log2((40075016.686 * cosLat * (minDim / 2)) / (radiusKm * 1000 * 256));
+  return Math.max(5, Math.min(15, Math.round(z)));
+}
+
+// Erste Ansicht: mit Punkten aufs Punkt-Bild, ohne Punkte zum Gerätehaus
+function applyInitialView() {
+  if (initialFitDone || !map) return;
+  if (allPoints.length) {
+    initialFitDone = true;
+    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  } else if (homeView) {
+    initialFitDone = true;
+    map.setView([homeView.lat, homeView.lng], homeZoomFor(homeView));
+  }
+}
+
 function initMap() {
-  map = L.map('map').setView([51.1657, 10.4515], 6); // Deutschland-Übersicht, wird nach dem Laden der Punkte automatisch angepasst
+  map = L.map('map').setView([51.1657, 10.4515], 6); // Deutschland-Übersicht als Fallback
   L.tileLayer('/tiles/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap-Mitwirkende' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 
@@ -166,11 +202,7 @@ async function loadPoints() {
   renderList();
   renderMarkers();
 
-  if (!initialFitDone && allPoints.length && map) {
-    initialFitDone = true;
-    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-  }
+  applyInitialView();
 }
 
 // Liste optional nach Suchbegriff (Name/Kategorie) filtern

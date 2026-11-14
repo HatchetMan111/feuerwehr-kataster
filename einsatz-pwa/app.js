@@ -64,6 +64,18 @@ function showMain() {
       document.getElementById('wehr-title').textContent = s.wehrname;
       localStorage.setItem('wehrname_cache', s.wehrname); // fürs nächste Mal, auch offline
       if (s.overdue_months) OVERDUE_MONTHS = s.overdue_months;
+      // Startposition übernehmen und für kommende Besuche cachen
+      const lat = Number(s.home_lat);
+      const lng = Number(s.home_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        homeView = { lat, lng, radius: Number(s.home_radius) || null };
+        localStorage.setItem('home_cache', JSON.stringify(homeView));
+        // Provisional: schon hinspringen, solange noch keine Punkte geladen
+        // sind - kommen später doch welche, passt fitBounds den Ausschnitt an
+        if (!initialFitDone && map && !allPoints.length) {
+          map.setView([homeView.lat, homeView.lng], homeZoomFor(homeView));
+        }
+      }
       renderPoints();
       renderMobileList();
     })
@@ -109,9 +121,48 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 // ============================================================
 // Karte
 // ============================================================
+let homeView = null; // Startposition (Gerätehaus), kommt aus den Einstellungen
+
+function readCachedHome() {
+  try {
+    const cached = JSON.parse(localStorage.getItem('home_cache'));
+    if (cached && Number.isFinite(cached.lat) && Number.isFinite(cached.lng)) return cached;
+  } catch { /* kaputter Cache wird ignoriert */ }
+  return null;
+}
+
+// Zoomstufe, bei der der konfigurierte Umkreis auf die kleinere
+// Bildschirmseite passt (Fallback: feste Stufe fürs Gerätehaus-Umfeld)
+function homeZoomFor(view) {
+  const radiusKm = view && Number(view.radius) > 0 ? Number(view.radius) : null;
+  if (!radiusKm) return 13;
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  const cosLat = Math.cos(Number(view.lat) * Math.PI / 180);
+  const z = Math.log2((40075016.686 * cosLat * (minDim / 2)) / (radiusKm * 1000 * 256));
+  return Math.max(5, Math.min(15, Math.round(z)));
+}
+
+// Erste Ansicht: mit Punkten aufs Punkt-Bild, ohne Punkte zum Gerätehaus
+function applyInitialView() {
+  if (initialFitDone || !map) return;
+  if (allPoints.length) {
+    initialFitDone = true;
+    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  } else if (homeView) {
+    initialFitDone = true;
+    map.setView([homeView.lat, homeView.lng], homeZoomFor(homeView));
+  }
+}
+
 function initMapIfNeeded() {
   if (map) return;
-  map = L.map('map', { zoomControl: true }).setView([51.1657, 10.4515], 6); // Deutschland-Übersicht, wird nach dem Laden der Punkte automatisch angepasst
+  map = L.map('map', { zoomControl: true }).setView([51.1657, 10.4515], 6); // Deutschland-Übersicht als Fallback
+  // Vom letzten Besuch bekannte Startposition sofort nutzen (auch offline),
+  // statt erst mit der Deutschland-Übersicht zu starten. Überschrieben wird
+  // das später durch den Punkt-Bildausschnitt, sobald Punkte geladen sind.
+  const cachedHome = readCachedHome();
+  if (cachedHome) map.setView([cachedHome.lat, cachedHome.lng], homeZoomFor(cachedHome));
 
   L.tileLayer('/tiles/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -202,11 +253,7 @@ async function loadPoints() {
   renderPoints();
   renderMobileList();
 
-  if (!initialFitDone && allPoints.length && map) {
-    initialFitDone = true;
-    const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-  }
+  applyInitialView();
 }
 
 function escapeHtml(str) {
