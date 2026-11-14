@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import pool from './db.js';
-import { signToken, requireAuth, requireRole } from './auth.js';
+import { signToken, requireAuth, requireRole, requireAuthFlexible } from './auth.js';
 
 const UPLOAD_DIR = '/app/uploads';
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -21,7 +21,10 @@ const app = express();
 app.set('trust proxy', 1); // Caddy leitet X-Forwarded-For weiter, damit req.ip die echte Client-IP ist
 app.use(cors());
 app.use(express.json({ limit: '12mb' })); // genug Spielraum für ein Handyfoto als Base64
-app.use('/uploads', express.static(UPLOAD_DIR));
+// Fotos enthalten personenbezogene Daten (Eigentümer, Telefonnummer) und sind
+// deshalb nicht offen erreichbar. <img>-Tags können keine Header mitschicken,
+// daher akzeptiert requireAuthFlexible das Token zusätzlich als ?token=...
+app.use('/uploads', requireAuthFlexible, express.static(UPLOAD_DIR));
 
 // Express 4 fängt Fehler in async-Route-Handlern NICHT ab - ohne diesen Wrapper
 // würde die Anfrage bei jedem DB-Fehler einfach ewig hängen, ohne eine Antwort.

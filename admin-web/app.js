@@ -284,7 +284,9 @@ function showDetail(p) {
 
   const photoEl = document.getElementById('detail-photo');
   if (p.photo_url) {
-    photoEl.src = p.photo_url;
+    // Fotos sind geschützt (siehe Backend /uploads) - <img> kann keine Header
+    // senden, daher geht das Token als URL-Parameter mit
+    photoEl.src = p.photo_url + '?token=' + encodeURIComponent(getToken());
     photoEl.style.display = 'block';
   } else {
     photoEl.style.display = 'none';
@@ -453,7 +455,7 @@ function openForm(point) {
   document.getElementById('f-photo').value = '';
   const preview = document.getElementById('f-photo-preview');
   if (point?.photo_url) {
-    preview.src = point.photo_url;
+    preview.src = point.photo_url + '?token=' + encodeURIComponent(getToken());
     preview.style.display = 'block';
   } else {
     preview.style.display = 'none';
