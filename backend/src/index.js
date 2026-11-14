@@ -10,10 +10,43 @@ import { signToken, requireAuth, requireRole } from './auth.js';
 const UPLOAD_DIR = '/app/uploads';
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// Fail-fast: Ohne JWT_SECRET würde jeder Login erst zur Laufzeit mit einer
+// kryptischen Fehlermeldung scheitern. Besser mit klarer Meldung direkt beim Start.
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
+  console.error('FEHLER: JWT_SECRET ist nicht gesetzt oder zu kurz (min. 16 Zeichen). Bitte .env prüfen.');
+  process.exit(1);
+}
+
 const app = express();
+app.set('trust proxy', 1); // Caddy leitet X-Forwarded-For weiter, damit req.ip die echte Client-IP ist
 app.use(cors());
 app.use(express.json({ limit: '12mb' })); // genug Spielraum für ein Handyfoto als Base64
 app.use('/uploads', express.static(UPLOAD_DIR));
+
+// Express 4 fängt Fehler in async-Route-Handlern NICHT ab - ohne diesen Wrapper
+// würde die Anfrage bei jedem DB-Fehler einfach ewig hängen, ohne eine Antwort.
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// Einfache Brute-Force-Bremse für den Login: zählt nur FEHLGESCHLAGENE Versuche
+// pro IP (erfolgreiche Anmeldungen zählen nicht, sonst sperrt man sich bei
+// gemeinsamer VPN-IP gegenseitig aus).
+const failedLogins = new Map();
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 10;
+function loginTooOften(ip) {
+  const entry = failedLogins.get(ip);
+  if (!entry) return false;
+  if (Date.now() > entry.resetAt) { failedLogins.delete(ip); return false; }
+  return entry.count >= LOGIN_MAX_FAILURES;
+}
+function registerLoginFailure(ip) {
+  const entry = failedLogins.get(ip);
+  if (entry && Date.now() <= entry.resetAt) {
+    entry.count++;
+  } else {
+    failedLogins.set(ip, { count: 1, resetAt: Date.now() + LOGIN_WINDOW_MS });
+  }
+}
 
 // --- Beim Start: Schema-Ergänzungen, die auch auf bereits laufenden Installationen greifen ---
 async function ensureSchema() {
@@ -58,21 +91,26 @@ ensureAdminUser();
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // --- Anmeldung ---
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', ah(async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ error: 'Benutzername und Passwort erforderlich.' });
   }
-  const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+  if (loginTooOften(req.ip)) {
+    return res.status(429).json({ error: 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte in 10 Minuten erneut versuchen.' });
+  }
+  const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username.trim()]);
   const user = rows[0];
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    registerLoginFailure(req.ip);
     return res.status(401).json({ error: 'Benutzername oder Passwort ist falsch.' });
   }
+  failedLogins.delete(req.ip); // erfolgreicher Zugang setzt den Zähler zurück
   res.json({ token: signToken(user), role: user.role, username: user.username });
-});
+}));
 
 // Eigenes Passwort ändern
-app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+app.post('/api/auth/change-password', requireAuth, ah(async (req, res) => {
   const { newPassword } = req.body || {};
   if (!newPassword || newPassword.length < 8) {
     return res.status(400).json({ error: 'Neues Passwort muss mindestens 8 Zeichen haben.' });
@@ -80,33 +118,36 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
   const hash = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
   res.json({ ok: true });
-});
+}));
 
 // Neue Nutzer anlegen (nur Admin)
-app.post('/api/users', requireAuth, requireRole('admin'), async (req, res) => {
+app.post('/api/users', requireAuth, requireRole('admin'), ah(async (req, res) => {
   const { username, password, role } = req.body || {};
-  if (!username || !password || !['admin', 'gruppenfuehrer'].includes(role)) {
+  if (!username || !username.trim() || username.trim().length > 50 || !password || !['admin', 'gruppenfuehrer'].includes(role)) {
     return res.status(400).json({ error: 'Benutzername, Passwort und gültige Rolle erforderlich.' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben.' });
   }
   const hash = await bcrypt.hash(password, 10);
   try {
     await pool.query(
       'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [username, hash, role]
+      [username.trim(), hash, role]
     );
     res.status(201).json({ ok: true });
   } catch (err) {
     res.status(409).json({ error: 'Benutzername existiert bereits.' });
   }
-});
+}));
 
 // --- Einstellungen ---
-app.get('/api/settings', requireAuth, async (req, res) => {
+app.get('/api/settings', requireAuth, ah(async (req, res) => {
   const { rows } = await pool.query('SELECT wehrname, overdue_months FROM settings WHERE id = 1');
   res.json(rows[0] || { wehrname: 'Musterwehr', overdue_months: 12 });
-});
+}));
 
-app.put('/api/settings', requireAuth, requireRole('admin'), async (req, res) => {
+app.put('/api/settings', requireAuth, requireRole('admin'), ah(async (req, res) => {
   const { wehrname, overdue_months } = req.body || {};
   if (!wehrname || !wehrname.trim()) {
     return res.status(400).json({ error: 'Name darf nicht leer sein.' });
@@ -117,26 +158,53 @@ app.put('/api/settings', requireAuth, requireRole('admin'), async (req, res) => 
   }
   await pool.query('UPDATE settings SET wehrname = $1, overdue_months = $2 WHERE id = 1', [wehrname.trim(), months]);
   res.json({ ok: true });
-});
+}));
 
 // --- Speicherplatz-Status (wird von check-disk.sh per Cron aktualisiert) ---
-app.get('/api/system-status', requireAuth, async (req, res) => {
+app.get('/api/system-status', requireAuth, ah(async (req, res) => {
   try {
     const raw = fs.readFileSync('/app/status/disk.json', 'utf-8');
     res.json(JSON.parse(raw));
   } catch {
     res.json({ disk_percent: null, warning: false, checked_at: null });
   }
-});
+}));
 
 // --- Kategorien ---
-app.get('/api/categories', async (req, res) => {
+// bewusst auch mit Auth: die App lädt sie nach der Anmeldung, und die Route
+// soll konsistent mit den übrigen API-Endpunkten nicht offen im Netz stehen
+app.get('/api/categories', requireAuth, ah(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM categories ORDER BY id');
   res.json(rows);
-});
+}));
 
 // --- Punkte ---
-app.get('/api/points', requireAuth, async (req, res) => {
+// Einheitliche Prüfung der Punkt-Felder, damit fehlerhafte Eingaben als
+// verständlicher 400 ankommen statt als DB-Fehler 500 (oder gar hängende Anfrage)
+function validatePointBody(b) {
+  if (!b.name || typeof b.name !== 'string' || !b.name.trim() || b.name.trim().length > 200) {
+    return 'Name ist erforderlich (max. 200 Zeichen).';
+  }
+  const lat = Number(b.lat);
+  const lng = Number(b.lng);
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) return 'Breitengrad ungültig.';
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) return 'Längengrad ungültig.';
+  if (b.category_id == null || !Number.isInteger(Number(b.category_id))) return 'Kategorie ungültig.';
+  if (b.capacity_liters != null && (!Number.isInteger(Number(b.capacity_liters)) || Number(b.capacity_liters) < 0)) {
+    return 'Fassungsvermögen muss eine ganze Zahl ≥ 0 sein.';
+  }
+  if (b.last_checked != null && !/^\d{4}-\d{2}-\d{2}$/.test(b.last_checked)) {
+    return 'Ungültiges Datum für die letzte Prüfung.';
+  }
+  return null;
+}
+
+async function categoryExists(id) {
+  const { rows } = await pool.query('SELECT 1 FROM categories WHERE id = $1', [id]);
+  return rows.length > 0;
+}
+
+app.get('/api/points', requireAuth, ah(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT p.*, ST_X(geom) AS lng, ST_Y(geom) AS lat,
            c.key AS category_key, c.label AS category_label, c.color AS category_color
@@ -145,13 +213,25 @@ app.get('/api/points', requireAuth, async (req, res) => {
     ORDER BY p.id
   `);
   res.json(rows);
-});
+}));
 
-app.post('/api/points', requireAuth, async (req, res) => {
+// ID-Parameter einheitlich prüfen: /api/points/abc soll als verständlicher
+// 400 ankommen statt als Postgres-Fehler
+function parseId(raw) {
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+app.post('/api/points', requireAuth, ah(async (req, res) => {
   const b = req.body || {};
-  if (!b.name || !b.category_id || b.lat == null || b.lng == null) {
-    return res.status(400).json({ error: 'Name, Kategorie und Koordinaten sind erforderlich.' });
+  const validationError = validatePointBody(b);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const categoryId = Number(b.category_id);
+  if (!(await categoryExists(categoryId))) {
+    return res.status(400).json({ error: 'Unbekannte Kategorie.' });
   }
+
   const { rows } = await pool.query(
     `INSERT INTO points
        (name, category_id, geom, capacity_liters, accessibility, condition_note,
@@ -159,7 +239,7 @@ app.post('/api/points', requireAuth, async (req, res) => {
      VALUES
        ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING id`,
-    [b.name, b.category_id, b.lng, b.lat, b.capacity_liters || null, b.accessibility || null,
+    [b.name.trim(), categoryId, Number(b.lng), Number(b.lat), b.capacity_liters == null || b.capacity_liters === '' ? null : Number(b.capacity_liters), b.accessibility || null,
      b.condition_note || null, b.owner_name || null, b.owner_phone || null,
      b.key_deposit_note || null, b.last_checked || null, req.user.id]
   );
@@ -169,12 +249,23 @@ app.post('/api/points', requireAuth, async (req, res) => {
     [rows[0].id, req.user.id, JSON.stringify(b)]
   );
   res.status(201).json({ id: rows[0].id });
-});
+}));
 
-app.put('/api/points/:id', requireAuth, async (req, res) => {
+app.put('/api/points/:id', requireAuth, ah(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id == null) return res.status(400).json({ error: 'Ungültige Punkt-ID.' });
+
   const b = req.body || {};
-  const { rows: old } = await pool.query('SELECT * FROM points WHERE id = $1', [req.params.id]);
+  const validationError = validatePointBody(b);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { rows: old } = await pool.query('SELECT * FROM points WHERE id = $1', [id]);
   if (!old[0]) return res.status(404).json({ error: 'Punkt nicht gefunden.' });
+
+  const categoryId = Number(b.category_id);
+  if (!(await categoryExists(categoryId))) {
+    return res.status(400).json({ error: 'Unbekannte Kategorie.' });
+  }
 
   await pool.query(
     `UPDATE points SET
@@ -183,33 +274,36 @@ app.put('/api/points/:id', requireAuth, async (req, res) => {
        owner_name = $8, owner_phone = $9, key_deposit_note = $10,
        last_checked = $11, updated_at = now()
      WHERE id = $12`,
-    [b.name, b.category_id, b.lng, b.lat, b.capacity_liters || null, b.accessibility || null,
+    [b.name.trim(), categoryId, Number(b.lng), Number(b.lat), b.capacity_liters == null || b.capacity_liters === '' ? null : Number(b.capacity_liters), b.accessibility || null,
      b.condition_note || null, b.owner_name || null, b.owner_phone || null,
-     b.key_deposit_note || null, b.last_checked || null, req.params.id]
+     b.key_deposit_note || null, b.last_checked || null, id]
   );
   await pool.query(
     `INSERT INTO point_history (point_id, changed_by, change_type, old_data, new_data)
      VALUES ($1, $2, 'updated', $3, $4)`,
-    [req.params.id, req.user.id, JSON.stringify(old[0]), JSON.stringify(b)]
+    [id, req.user.id, JSON.stringify(old[0]), JSON.stringify(b)]
   );
   res.json({ ok: true });
-});
+}));
 
 // Löschen nur für Admins - Gruppenführer können anlegen/bearbeiten, aber nichts endgültig entfernen
-app.delete('/api/points/:id', requireAuth, requireRole('admin'), async (req, res) => {
+app.delete('/api/points/:id', requireAuth, requireRole('admin'), ah(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id == null) return res.status(400).json({ error: 'Ungültige Punkt-ID.' });
+
   const { rows: old } = await pool.query(
     `SELECT p.*, ST_X(geom) AS lng, ST_Y(geom) AS lat, c.label AS category_label
      FROM points p JOIN categories c ON c.id = p.category_id
      WHERE p.id = $1`,
-    [req.params.id]
+    [id]
   );
   if (!old[0]) return res.status(404).json({ error: 'Punkt nicht gefunden.' });
 
-  await pool.query('DELETE FROM points WHERE id = $1', [req.params.id]);
+  await pool.query('DELETE FROM points WHERE id = $1', [id]);
   await pool.query(
     `INSERT INTO point_history (point_id, changed_by, change_type, old_data)
      VALUES ($1, $2, 'deleted', $3)`,
-    [req.params.id, req.user.id, JSON.stringify(old[0])]
+    [id, req.user.id, JSON.stringify(old[0])]
   );
 
   if (old[0].photo_url) {
@@ -218,22 +312,25 @@ app.delete('/api/points/:id', requireAuth, requireRole('admin'), async (req, res
   }
 
   res.json({ ok: true });
-});
+}));
 
-app.get('/api/points/:id/history', requireAuth, async (req, res) => {
+app.get('/api/points/:id/history', requireAuth, ah(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id == null) return res.status(400).json({ error: 'Ungültige Punkt-ID.' });
+
   const { rows } = await pool.query(
     `SELECT h.*, u.username
      FROM point_history h
      LEFT JOIN users u ON u.id = h.changed_by
      WHERE point_id = $1
      ORDER BY changed_at DESC`,
-    [req.params.id]
+    [id]
   );
   res.json(rows);
-});
+}));
 
 // Gelöschte Punkte einsehen (Daten bleiben im Verlauf erhalten, auch nach dem Löschen)
-app.get('/api/points/deleted', requireAuth, requireRole('admin'), async (req, res) => {
+app.get('/api/points/deleted', requireAuth, requireRole('admin'), ah(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT h.point_id, h.old_data, h.changed_at, u.username
     FROM point_history h
@@ -242,16 +339,23 @@ app.get('/api/points/deleted', requireAuth, requireRole('admin'), async (req, re
     ORDER BY h.changed_at DESC
   `);
   res.json(rows);
-});
+}));
 
 // Gelöschten Punkt als neuen Punkt wiederherstellen (Foto muss ggf. neu hochgeladen werden)
-app.post('/api/points/deleted/:pointId/restore', requireAuth, requireRole('admin'), async (req, res) => {
+app.post('/api/points/deleted/:pointId/restore', requireAuth, requireRole('admin'), ah(async (req, res) => {
+  const id = parseId(req.params.pointId);
+  if (id == null) return res.status(400).json({ error: 'Ungültige Punkt-ID.' });
+
   const { rows } = await pool.query(
     `SELECT old_data FROM point_history WHERE point_id = $1 AND change_type = 'deleted' ORDER BY changed_at DESC LIMIT 1`,
-    [req.params.pointId]
+    [id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Kein gelöschter Punkt mit dieser ID gefunden.' });
   const d = rows[0].old_data;
+
+  if (!(await categoryExists(Number(d.category_id)))) {
+    return res.status(400).json({ error: 'Die Kategorie dieses Punktes existiert nicht mehr.' });
+  }
 
   const { rows: created } = await pool.query(
     `INSERT INTO points
@@ -271,12 +375,15 @@ app.post('/api/points/deleted/:pointId/restore', requireAuth, requireRole('admin
   );
 
   res.status(201).json({ id: created[0].id });
-});
+}));
 
 // --- Foto-Upload ---
 const ALLOWED_IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
-app.post('/api/points/:id/photo', requireAuth, async (req, res) => {
+app.post('/api/points/:id/photo', requireAuth, ah(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id == null) return res.status(400).json({ error: 'Ungültige Punkt-ID.' });
+
   const { photo_base64 } = req.body || {};
   if (!photo_base64 || !photo_base64.startsWith('data:')) {
     return res.status(400).json({ error: 'Kein gültiges Bild übermittelt.' });
@@ -287,11 +394,11 @@ app.post('/api/points/:id/photo', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Nur JPEG-, PNG- oder WebP-Bilder sind erlaubt.' });
   }
 
-  const { rows: existing } = await pool.query('SELECT * FROM points WHERE id = $1', [req.params.id]);
+  const { rows: existing } = await pool.query('SELECT * FROM points WHERE id = $1', [id]);
   if (!existing[0]) return res.status(404).json({ error: 'Punkt nicht gefunden.' });
 
   const ext = ALLOWED_IMAGE_TYPES[match[1]];
-  const filename = `${req.params.id}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  const filename = `${id}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
   const buffer = Buffer.from(match[2], 'base64');
 
   // Grobe Größenprüfung (max. 8 MB nach Dekodierung)
@@ -309,14 +416,23 @@ app.post('/api/points/:id/photo', requireAuth, async (req, res) => {
   }
 
   const photoUrl = `/uploads/${filename}`;
-  await pool.query('UPDATE points SET photo_url = $1, updated_at = now() WHERE id = $2', [photoUrl, req.params.id]);
+  await pool.query('UPDATE points SET photo_url = $1, updated_at = now() WHERE id = $2', [photoUrl, id]);
   await pool.query(
     `INSERT INTO point_history (point_id, changed_by, change_type, new_data)
      VALUES ($1, $2, 'photo_updated', $3)`,
-    [req.params.id, req.user.id, JSON.stringify({ photo_url: photoUrl })]
+    [id, req.user.id, JSON.stringify({ photo_url: photoUrl })]
   );
 
   res.json({ photo_url: photoUrl });
+}));
+
+// --- Zentraler Fehlerhandler: DB-/Code-Fehler werden als sauberes 500-JSON ---
+// beantwortet statt die Anfrage ewig hängen zu lassen (Express 4 fängt
+// async-Fehler ohne den ah()-Wrapper oben ohnehin nicht ab).
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  console.error(`Fehler bei ${req.method} ${req.originalUrl}:`, err.message);
+  res.status(500).json({ error: 'Interner Serverfehler. Bitte erneut versuchen.' });
 });
 
 const PORT = process.env.PORT || 3000;

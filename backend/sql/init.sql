@@ -62,3 +62,4 @@ CREATE TABLE point_history (
 );
 
 CREATE INDEX points_geom_idx ON points USING GIST (geom);
+CREATE INDEX point_history_point_idx ON point_history (point_id);
