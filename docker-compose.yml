@@ -40,6 +40,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       WEHRNAME: ${WEHRNAME:-Musterwehr}
+      # Startposition der Karte (vom Installer gesetzt; leer = Deutschland-Übersicht)
+      WEHR_LAT: ${WEHR_LAT:-}
+      WEHR_LNG: ${WEHR_LNG:-}
+      WEHR_VIEW_RADIUS: ${WEHR_VIEW_RADIUS:-}
     depends_on:
       - postgis
 

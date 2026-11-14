@@ -63,10 +63,30 @@ async function ensureSchema() {
   `);
   // Migration für Datenbanken, die vor Einführung von overdue_months angelegt wurden
   await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS overdue_months INTEGER NOT NULL DEFAULT 12`);
+  // Startposition der Karte (Gerätehaus), gesetzt aus WEHR_LAT / WEHR_LNG / WEHR_VIEW_RADIUS
+  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_lat DOUBLE PRECISION`);
+  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_lng DOUBLE PRECISION`);
+  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_radius INTEGER`);
+
+  const homeLat = Number(process.env.WEHR_LAT);
+  const homeLng = Number(process.env.WEHR_LNG);
+  const radiusRaw = Number(process.env.WEHR_VIEW_RADIUS);
+  const homeRadius = Number.isInteger(radiusRaw) && radiusRaw > 0 ? radiusRaw : null;
+  const hasHome = Number.isFinite(homeLat) && Number.isFinite(homeLng)
+    && Math.abs(homeLat) <= 90 && Math.abs(homeLng) <= 180;
 
   const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM settings');
   if (rows[0].count === 0) {
-    await pool.query('INSERT INTO settings (id, wehrname) VALUES (1, $1)', [process.env.WEHRNAME || 'Musterwehr']);
+    await pool.query(
+      `INSERT INTO settings (id, wehrname, home_lat, home_lng, home_radius) VALUES (1, $1, $2, $3, $4)`,
+      [process.env.WEHRNAME || 'Musterwehr', hasHome ? homeLat : null, hasHome ? homeLng : null, homeRadius]
+    );
+  } else if (hasHome) {
+    // Bestehende Installationen nachrüsten, solange noch kein Standort hinterlegt ist
+    await pool.query(
+      `UPDATE settings SET home_lat = $1, home_lng = $2, home_radius = COALESCE($3, home_radius) WHERE id = 1 AND home_lat IS NULL`,
+      [homeLat, homeLng, homeRadius]
+    );
   }
 }
 
@@ -146,8 +166,8 @@ app.post('/api/users', requireAuth, requireRole('admin'), ah(async (req, res) =>
 
 // --- Einstellungen ---
 app.get('/api/settings', requireAuth, ah(async (req, res) => {
-  const { rows } = await pool.query('SELECT wehrname, overdue_months FROM settings WHERE id = 1');
-  res.json(rows[0] || { wehrname: 'Musterwehr', overdue_months: 12 });
+  const { rows } = await pool.query('SELECT wehrname, overdue_months, home_lat, home_lng, home_radius FROM settings WHERE id = 1');
+  res.json(rows[0] || { wehrname: 'Musterwehr', overdue_months: 12, home_lat: null, home_lng: null, home_radius: null });
 }));
 
 app.put('/api/settings', requireAuth, requireRole('admin'), ah(async (req, res) => {

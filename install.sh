@@ -81,6 +81,37 @@ BUNDESLAND=$(whiptail --menu "In welchem Bundesland liegt eure Feuerwehr?\n(für
 STANDORT=$(whiptail --inputbox "Adresse oder Ort eures Gerätehauses\n(Mittelpunkt des Kartenausschnitts)" 10 60 "Musterstraße 1, 74821 Musterstadt" --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 RADIUS=$(whiptail --inputbox "Umkreis um diesen Standort in km\n(wie groß soll der Kartenausschnitt sein?)" 10 60 20 --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 
+# Koordinaten des Standorts früh auflösen: die Karte startet später direkt
+# beim Gerätehaus statt mit einer Deutschland-Übersicht. setup-tiles.sh
+# bekommt die Koordinaten weitergereicht und muss nicht erneut suchen.
+WEHR_LAT=""
+WEHR_LNG=""
+if command -v python3 >/dev/null 2>&1; then
+  msg "Ermittle Koordinaten für: $STANDORT"
+  ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$STANDORT")
+  if GEO=$(curl -fsSL --max-time 30 -H "User-Agent: feuerwehr-kataster-install" \
+    "https://nominatim.openstreetmap.org/search?q=${ENCODED}&format=json&limit=1"); then
+    WEHR_LAT=$(echo "$GEO" | python3 -c "import json,sys
+try:
+  d = json.load(sys.stdin)
+  print(d[0]['lat'] if d else '')
+except Exception:
+  print('')")
+    WEHR_LNG=$(echo "$GEO" | python3 -c "import json,sys
+try:
+  d = json.load(sys.stdin)
+  print(d[0]['lon'] if d else '')
+except Exception:
+  print('')")
+  fi
+fi
+if [ -n "$WEHR_LAT" ] && [ -n "$WEHR_LNG" ]; then
+  msg "Standort gefunden: $WEHR_LAT, $WEHR_LNG (die Karte startet direkt dort)"
+else
+  msg "Adresse konnte vorab nicht aufgelöst werden - die Karte startet mit der Deutschland-Übersicht."
+  msg "setup-tiles.sh versucht die Auflösung beim Kartenaufbau erneut."
+fi
+
 msg "Lade Debian-12-Vorlage (falls noch nicht vorhanden)..."
 pveam update >/dev/null
 TEMPLATE=$(pveam available --section system | grep debian-12-standard | awk '{print $2}' | tail -1)
@@ -145,6 +176,10 @@ JWT_SECRET=$JWT_SECRET
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 WEHRNAME=$WEHRNAME
 EOF
+# Startposition der Karte (leer = Deutschland-Übersicht als Fallback)
+[ -n "$WEHR_LAT" ] && echo "WEHR_LAT=$WEHR_LAT" >> "$ENV_TMP"
+[ -n "$WEHR_LNG" ] && echo "WEHR_LNG=$WEHR_LNG" >> "$ENV_TMP"
+echo "WEHR_VIEW_RADIUS=${RADIUS:-20}" >> "$ENV_TMP"
 pct push "$CTID" "$ENV_TMP" /opt/feuerwehr-kataster/.env
 rm -f "$ENV_TMP"
 
@@ -157,7 +192,7 @@ pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && docker compose --env-
 msg "Baue automatisch das Kartenmaterial für einen Umkreis von ${RADIUS}km um '$STANDORT'..."
 msg "Das dauert je nach Ausschnittgröße 10 bis 30 Minuten. Die App ist in der Zwischenzeit bereits nutzbar,"
 msg "nur die Kartenkacheln erscheinen erst danach."
-pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash setup-tiles.sh '$BUNDESLAND' '$STANDORT' '$RADIUS'" \
+pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash setup-tiles.sh '$BUNDESLAND' '$STANDORT' '$RADIUS' '$WEHR_LAT' '$WEHR_LNG'" \
   || echo "Hinweis: Der automatische Kartenaufbau ist fehlgeschlagen. Siehe README.md, Abschnitt 'Kartenmaterial', zum manuellen Nachholen."
 
 msg "Starte den Kartenserver..."

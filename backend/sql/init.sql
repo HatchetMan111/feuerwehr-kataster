@@ -12,6 +12,9 @@ CREATE TABLE settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   wehrname TEXT NOT NULL DEFAULT 'Musterwehr',
   overdue_months INTEGER NOT NULL DEFAULT 12,
+  home_lat DOUBLE PRECISION,
+  home_lng DOUBLE PRECISION,
+  home_radius INTEGER,
   CHECK (id = 1)
 );
 

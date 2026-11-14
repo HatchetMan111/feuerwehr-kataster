@@ -16,9 +16,13 @@ set -e
 BUNDESLAND="$1"
 ADRESSE="$2"
 RADIUS_KM="${3:-20}"
+# Optional vom Installer voraufgelöste Koordinaten (Parameter 4 und 5) -
+# dann entfällt der zweite Nominatim-Aufruf komplett
+PRESET_LAT="$4"
+PRESET_LON="$5"
 
 if [ -z "$BUNDESLAND" ] || [ -z "$ADRESSE" ]; then
-  echo "Aufruf: bash setup-tiles.sh <bundesland-slug> \"<Adresse>\" [radius_km]"
+  echo "Aufruf: bash setup-tiles.sh <bundesland-slug> \"<Adresse>\" [radius_km] [lat] [lon]"
   exit 1
 fi
 
@@ -31,28 +35,34 @@ command -v osmium >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y o
 command -v osmium >/dev/null 2>&1 || { echo "[Kartenaufbau] FEHLER: osmium-tool konnte nicht installiert werden. Bitte manuell nachholen: apt-get install osmium-tool"; exit 1; }
 command -v python3 >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y python3 >/dev/null)
 
-echo "[Kartenaufbau] Ermittle Koordinaten für: $ADRESSE"
-ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$ADRESSE")
-if ! GEO=$(curl -fsSL --max-time 30 -H "User-Agent: feuerwehr-kataster-setup (Kontakt: siehe Wehr)" \
-  "https://nominatim.openstreetmap.org/search?q=${ENCODED}&format=json&limit=1"); then
-  echo "[Kartenaufbau] FEHLER: Adress-Auflösung nicht möglich (kein Internet oder Nominatim nicht erreichbar)."
-  echo "               Später erneut versuchen: bash setup-tiles.sh \"$BUNDESLAND\" \"$ADRESSE\" \"$RADIUS_KM\""
-  exit 1
-fi
+if [[ "$PRESET_LAT" =~ ^-?[0-9]+([.][0-9]+)?$ ]] && [[ "$PRESET_LON" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+  LAT="$PRESET_LAT"
+  LON="$PRESET_LON"
+  echo "[Kartenaufbau] Verwende vom Installer übergebene Koordinaten: Breite $LAT, Länge $LON"
+else
+  echo "[Kartenaufbau] Ermittle Koordinaten für: $ADRESSE"
+  ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$ADRESSE")
+  if ! GEO=$(curl -fsSL --max-time 30 -H "User-Agent: feuerwehr-kataster-setup (Kontakt: siehe Wehr)" \
+    "https://nominatim.openstreetmap.org/search?q=${ENCODED}&format=json&limit=1"); then
+    echo "[Kartenaufbau] FEHLER: Adress-Auflösung nicht möglich (kein Internet oder Nominatim nicht erreichbar)."
+    echo "               Später erneut versuchen: bash setup-tiles.sh \"$BUNDESLAND\" \"$ADRESSE\" \"$RADIUS_KM\""
+    exit 1
+  fi
 
-# Parse-Fehler (z.B. unerwartete Antwort) abfangen, statt mit Traceback abzubrechen
-LAT=$(echo "$GEO" | python3 -c "import json,sys
+  # Parse-Fehler (z.B. unerwartete Antwort) abfangen, statt mit Traceback abzubrechen
+  LAT=$(echo "$GEO" | python3 -c "import json,sys
 try:
   d = json.load(sys.stdin)
   print(d[0]['lat'] if d else '')
 except Exception:
   print('')")
-LON=$(echo "$GEO" | python3 -c "import json,sys
+  LON=$(echo "$GEO" | python3 -c "import json,sys
 try:
   d = json.load(sys.stdin)
   print(d[0]['lon'] if d else '')
 except Exception:
   print('')")
+fi
 
 if [ -z "$LAT" ] || [ -z "$LON" ]; then
   echo "[Kartenaufbau] Adresse konnte nicht gefunden werden. Bitte Schreibweise prüfen oder"
