@@ -173,9 +173,27 @@ async function loadPoints() {
   }
 }
 
+// Liste optional nach Suchbegriff (Name/Kategorie) filtern
+function filteredPoints() {
+  const q = (document.getElementById('point-search')?.value || '').trim().toLowerCase();
+  if (!q) return allPoints;
+  return allPoints.filter((p) =>
+    ((p.name || '') + ' ' + (p.category_label || '')).toLowerCase().includes(q)
+  );
+}
+
+document.getElementById('point-search')?.addEventListener('input', () => renderList());
+
 function renderList() {
   const list = document.getElementById('point-list');
-  list.innerHTML = allPoints
+  const points = filteredPoints();
+  if (!points.length) {
+    list.innerHTML = allPoints.length
+      ? '<div id="list-empty">Keine Punkte passen zur Suche.</div>'
+      : '<div id="list-empty">Noch keine Punkte erfasst.</div>';
+    return;
+  }
+  list.innerHTML = points
     .map(
       (p) => `
       <div class="point-row" data-id="${p.id}">
@@ -191,12 +209,36 @@ function renderList() {
   list.querySelectorAll('.point-row').forEach((row) => {
     row.addEventListener('click', () => {
       const point = allPoints.find((p) => p.id === Number(row.dataset.id));
-      if (point) {
-        map.setView([point.lat, point.lng], 16);
-        showDetail(point);
-      }
+      if (point) focusPoint(point);
     });
   });
+}
+
+// Punkt ins Zentrum rücken und Detailpanel öffnen - das Ziel-Zentrum wird
+// direkt so berechnet, dass der Marker NEBEN dem Panel liegt (nicht unter
+// ihm). Gemessen wird am Karten-Container (nicht am Fenster!), weil die
+// Karte neben der Sidebar liegt. Ein einziger setView-Aufruf, weil ein
+// nachgelagertes panTo mit einer laufenden Zoom-Animation kollidiert.
+function focusPoint(point) {
+  showDetail(point); // Panel zuerst öffnen, damit Breite/Höhe gemessen werden können
+  const panel = document.getElementById('detail-panel');
+  const zoom = 16;
+  let target = L.latLng(point.lat, point.lng);
+  const mapRect = document.getElementById('map').getBoundingClientRect();
+  const desktop = window.matchMedia('(min-width: 861px)').matches;
+  if (desktop) {
+    // Panel liegt rechts -> Marker links davon halten
+    const wantX = mapRect.width - panel.offsetWidth - 16 - 24; // linke Panelkante minus Luft
+    const delta = wantX - mapRect.width / 2;
+    target = map.unproject(map.project(target, zoom).subtract([delta, 0]), zoom);
+  } else {
+    // Panel liegt unten (Mobil-Layout) -> Marker oberhalb halten
+    const height = Math.min(panel.offsetHeight, window.innerHeight * 0.72);
+    const wantY = mapRect.height - height - 24;
+    const delta = wantY - mapRect.height / 2;
+    target = map.unproject(map.project(target, zoom).subtract([0, delta]), zoom);
+  }
+  map.setView(target, zoom);
 }
 
 function renderMarkers() {
@@ -205,7 +247,7 @@ function renderMarkers() {
     .filter((p) => p.id !== editingPointId)
     .forEach((p) => {
       const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category_color, isOverdue(p)) });
-      marker.on('click', () => showDetail(p));
+      marker.on('click', () => focusPoint(p));
       marker.addTo(markersLayer);
     });
 }
@@ -255,6 +297,34 @@ function showDetail(p) {
 
 document.getElementById('detail-edit').addEventListener('click', () => {
   if (selectedPoint) openForm(selectedPoint);
+});
+
+// Foto anklickbar: Vollbild-Ansicht wie in der Einsatz-App
+document.getElementById('detail-photo').addEventListener('click', () => {
+  const src = document.getElementById('detail-photo').src;
+  if (!src) return;
+  document.getElementById('admin-lightbox-img').src = src;
+  document.getElementById('admin-lightbox').classList.add('open');
+});
+document.getElementById('admin-lightbox-close').addEventListener('click', () => {
+  document.getElementById('admin-lightbox').classList.remove('open');
+});
+document.getElementById('admin-lightbox').addEventListener('click', (e) => {
+  if (e.target.id === 'admin-lightbox') document.getElementById('admin-lightbox').classList.remove('open');
+});
+
+// Esc schließt die oberste offene Ebene
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('admin-lightbox').classList.contains('open')) {
+    document.getElementById('admin-lightbox').classList.remove('open');
+  } else if (document.getElementById('history-overlay').classList.contains('open')) {
+    document.getElementById('history-overlay').classList.remove('open');
+  } else if (document.getElementById('deleted-points-overlay').classList.contains('open')) {
+    document.getElementById('deleted-points-overlay').classList.remove('open');
+  } else if (document.getElementById('form-overlay').classList.contains('open')) {
+    document.getElementById('form-cancel').click();
+  }
 });
 
 const HISTORY_LABELS = { created: 'Angelegt', updated: 'Geändert', deleted: 'Gelöscht', photo_updated: 'Foto aktualisiert', restored: 'Wiederhergestellt' };

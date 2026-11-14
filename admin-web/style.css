@@ -11,6 +11,7 @@
 }
 
 * { box-sizing: border-box; }
+:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text-primary); background: var(--surface-muted); }
 
 #login-screen {
@@ -35,7 +36,13 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #sidebar-header p { font-size: 12px; color: var(--text-secondary); margin: 0; }
 #new-point-btn { margin-top: 10px; width: 100%; height: 36px; border: none; border-radius: 8px; background: var(--blue-600); color: white; font-size: 13px; cursor: pointer; }
 
+#search-row { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+#search-row input {
+  width: 100%; height: 36px; border: 1px solid var(--border); border-radius: 8px;
+  padding: 0 12px; font-size: 14px; background: var(--surface-muted); color: var(--text-primary);
+}
 #point-list { flex: 1; overflow-y: auto; }
+#list-empty { padding: 24px 16px; text-align: center; color: var(--text-secondary); font-size: 13px; }
 .point-row { padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 10px; }
 .point-row:hover { background: var(--surface-muted); }
 .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -70,7 +77,12 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 #detail-actions { display: flex; gap: 8px; margin-top: 12px; }
 #detail-actions button { flex: 1; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; cursor: pointer; }
 #detail-delete { color: var(--coral-600); border-color: var(--coral-600); }
-#detail-photo { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+/* contain statt cover: hochkant aufgenommene Handyfotos werden nicht mehr beschnitten;
+   antippbar für die Vollbild-Ansicht */
+#detail-photo {
+  width: 100%; max-height: 220px; object-fit: contain; background: var(--surface-muted);
+  border-radius: 8px; margin-bottom: 8px; cursor: zoom-in;
+}
 #detail-overdue-warning {
   color: var(--coral-600); background: var(--coral-50); font-size: 12px; font-weight: 500;
   padding: 6px 10px; border-radius: 8px; margin: 8px 0 0;
@@ -146,4 +158,67 @@ body:has(#form-overlay.open) .leaflet-control-container {
 #logout-btn {
   width: 100%; height: 32px; border-radius: 6px; border: 1px solid var(--coral-600); background: var(--surface);
   color: var(--coral-600); font-size: 12px; cursor: pointer; margin-top: 4px;
+}
+
+/* --- Vollbild-Foto --- */
+#admin-lightbox {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none;
+  align-items: center; justify-content: center; z-index: 1500;
+}
+#admin-lightbox.open { display: flex; }
+#admin-lightbox-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+#admin-lightbox-close {
+  position: absolute; top: 16px; right: 16px; z-index: 1501;
+  width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15);
+  color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* --- Hover-Feinschliff (nur Geräte mit echter Maus) --- */
+@media (hover: hover) {
+  .point-row:hover { background: var(--surface-muted); }
+  #detail-actions button:hover,
+  .modal-panel button:hover { filter: brightness(0.97); }
+}
+
+/* ============================================================
+   Mobil (≤860px): Sidebar wird zum Kopfbereich, Detailpanel und
+   Formular werden zu Bottom-Sheets - die Verwaltung bleibt damit
+   auch am Handy voll bedienbar
+   ============================================================ */
+@media (max-width: 860px) {
+  #app-shell { flex-direction: column; }
+  #sidebar {
+    width: 100%; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border);
+  }
+  #sidebar-header { padding: 12px 16px 8px; }
+  #new-point-btn { height: 40px; }
+
+  #detail-panel {
+    top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+    border-radius: 16px 16px 0 0; border: none; border-top: 1px solid var(--border);
+    max-height: 72vh; overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0));
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.18);
+  }
+  #detail-photo { max-height: 30vh; }
+
+  #form-overlay { align-items: flex-end; }
+  #point-form {
+    width: 100%; max-width: none; max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0));
+  }
+  /* 16px verhindern iOS' automatischen Zoom beim Antippen von Eingabefeldern */
+  #point-form input, #point-form select, #point-form textarea,
+  #login-form input, #user-admin input, #user-admin select,
+  #account-section input, #wehrname-row input {
+    font-size: 16px;
+  }
+  #login-form { padding: 0 16px; }
+
+  #history-panel, .modal-panel {
+    width: 100%; max-width: none; height: auto; max-height: 86vh;
+    border-radius: 16px 16px 0 0; align-self: flex-end;
+  }
+  #history-overlay, #deleted-points-overlay { align-items: flex-end; }
+  #admin-lightbox-close { top: max(16px, env(safe-area-inset-top)); }
 }

@@ -26,13 +26,16 @@
       <p>Verwaltungsoberfläche</p>
       <button id="new-point-btn">+ Neuen Punkt anlegen</button>
     </div>
+    <div id="search-row">
+      <input type="search" id="point-search" placeholder="Punkte durchsuchen …" autocomplete="off" />
+    </div>
     <div id="point-list"></div>
 
     <div id="user-admin" style="display:none;">
       <h3>Neuen Nutzer anlegen (nur Admin)</h3>
       <form id="user-form">
         <input type="text" id="u-username" placeholder="Benutzername" required style="flex:1 1 100px;" />
-        <input type="password" id="u-password" placeholder="Passwort" required style="flex:1 1 100px;" />
+        <input type="password" id="u-password" placeholder="Passwort (mind. 8 Zeichen)" minlength="8" required style="flex:1 1 100px;" />
         <select id="u-role">
           <option value="gruppenfuehrer">Gruppenführer</option>
           <option value="admin">Admin</option>
@@ -52,7 +55,7 @@
       </div>
 
       <form id="password-form">
-        <input type="password" id="s-new-password" placeholder="Neues Passwort" required style="flex:1 1 100px;" />
+        <input type="password" id="s-new-password" placeholder="Neues Passwort (mind. 8 Zeichen)" minlength="8" required style="flex:1 1 100px;" />
         <input type="password" id="s-new-password-repeat" placeholder="Wiederholen" required style="flex:1 1 100px;" />
         <button type="submit">Passwort ändern</button>
       </form>
@@ -104,6 +107,12 @@
     <h2>Gelöschte Punkte</h2>
     <div id="deleted-points-list"></div>
   </div>
+</div>
+
+<!-- Vollbild-Foto (per Klick auf das Foto im Detailpanel) -->
+<div id="admin-lightbox">
+  <button id="admin-lightbox-close">✕</button>
+  <img id="admin-lightbox-img" alt="Foto der Örtlichkeit in voller Größe" />
 </div>
 
 <div id="form-overlay">
