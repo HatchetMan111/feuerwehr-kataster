@@ -28,15 +28,31 @@ cd tiles
 
 echo "[Kartenaufbau] Prüfe benötigte Werkzeuge..."
 command -v osmium >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y osmium-tool >/dev/null)
+command -v osmium >/dev/null 2>&1 || { echo "[Kartenaufbau] FEHLER: osmium-tool konnte nicht installiert werden. Bitte manuell nachholen: apt-get install osmium-tool"; exit 1; }
 command -v python3 >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y python3 >/dev/null)
 
 echo "[Kartenaufbau] Ermittle Koordinaten für: $ADRESSE"
 ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$ADRESSE")
-GEO=$(curl -fsSL -H "User-Agent: feuerwehr-kataster-setup (Kontakt: siehe Wehr)" \
-  "https://nominatim.openstreetmap.org/search?q=${ENCODED}&format=json&limit=1")
+if ! GEO=$(curl -fsSL --max-time 30 -H "User-Agent: feuerwehr-kataster-setup (Kontakt: siehe Wehr)" \
+  "https://nominatim.openstreetmap.org/search?q=${ENCODED}&format=json&limit=1"); then
+  echo "[Kartenaufbau] FEHLER: Adress-Auflösung nicht möglich (kein Internet oder Nominatim nicht erreichbar)."
+  echo "               Später erneut versuchen: bash setup-tiles.sh \"$BUNDESLAND\" \"$ADRESSE\" \"$RADIUS_KM\""
+  exit 1
+fi
 
-LAT=$(echo "$GEO" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['lat'] if d else '')")
-LON=$(echo "$GEO" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['lon'] if d else '')")
+# Parse-Fehler (z.B. unerwartete Antwort) abfangen, statt mit Traceback abzubrechen
+LAT=$(echo "$GEO" | python3 -c "import json,sys
+try:
+  d = json.load(sys.stdin)
+  print(d[0]['lat'] if d else '')
+except Exception:
+  print('')")
+LON=$(echo "$GEO" | python3 -c "import json,sys
+try:
+  d = json.load(sys.stdin)
+  print(d[0]['lon'] if d else '')
+except Exception:
+  print('')")
 
 if [ -z "$LAT" ] || [ -z "$LON" ]; then
   echo "[Kartenaufbau] Adresse konnte nicht gefunden werden. Bitte Schreibweise prüfen oder"

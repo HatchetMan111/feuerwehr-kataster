@@ -22,7 +22,38 @@ if ! command -v whiptail >/dev/null 2>&1; then
   apt-get update -qq && apt-get install -y whiptail >/dev/null
 fi
 
-CTID=$(whiptail --inputbox "Container-ID (frei wählbar, z.B. 201)" 9 60 201 --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
+# Nächste freie Container-ID automatisch ermitteln (cluster-weit über pvesh;
+# Fallback: lokal ab 201 hochzählen, bis eine ID frei ist)
+NEXT_ID=$(pvesh get /cluster/nextid 2>/dev/null | head -1 | tr -dc '0-9')
+if ! [[ "$NEXT_ID" =~ ^[0-9]+$ ]]; then
+  NEXT_ID=201
+  while pct status "$NEXT_ID" >/dev/null 2>&1; do
+    NEXT_ID=$((NEXT_ID + 1))
+  done
+fi
+
+# Eingabe prüfen: numerisch und tatsächlich frei - sonst mit neuem
+# Vorschlag erneut fragen, statt die Installation hart abzubrechen
+while true; do
+  CTID=$(whiptail --inputbox "Container-ID (frei wählbar)\nVorschlag: nächste freie ID" 10 60 "$NEXT_ID" --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
+  if ! [[ "$CTID" =~ ^[0-9]+$ ]]; then
+    whiptail --msgbox "Die Container-ID muss eine ganze Zahl sein." 8 55 --title "$APP installieren"
+    continue
+  fi
+  if pct status "$CTID" >/dev/null 2>&1; then
+    NEXT_ID=$(pvesh get /cluster/nextid 2>/dev/null | head -1 | tr -dc '0-9')
+    if ! [[ "$NEXT_ID" =~ ^[0-9]+$ ]]; then
+      NEXT_ID=$CTID
+      while pct status "$NEXT_ID" >/dev/null 2>&1; do
+        NEXT_ID=$((NEXT_ID + 1))
+      done
+    fi
+    whiptail --msgbox "Container-ID $CTID ist bereits vergeben.\nNächste freie ID: $NEXT_ID" 9 55 --title "$APP installieren"
+    continue
+  fi
+  break
+done
+
 HOSTNAME=$(whiptail --inputbox "Hostname des Containers" 9 60 feuerwehr-kataster --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 WEHRNAME=$(whiptail --inputbox "Name eurer Feuerwehr (erscheint in der App)" 9 60 "Musterwehr" --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 STORAGE=$(whiptail --inputbox "Proxmox-Storage für den Container" 9 60 local-lvm --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
@@ -50,10 +81,6 @@ BUNDESLAND=$(whiptail --menu "In welchem Bundesland liegt eure Feuerwehr?\n(für
 STANDORT=$(whiptail --inputbox "Adresse oder Ort eures Gerätehauses\n(Mittelpunkt des Kartenausschnitts)" 10 60 "Musterstraße 1, 74821 Musterstadt" --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 RADIUS=$(whiptail --inputbox "Umkreis um diesen Standort in km\n(wie groß soll der Kartenausschnitt sein?)" 10 60 20 --title "$APP installieren" 3>&1 1>&2 2>&3) || exit 1
 
-if pct status "$CTID" >/dev/null 2>&1; then
-  fail "Container-ID $CTID wird bereits verwendet. Bitte eine andere ID wählen."
-fi
-
 msg "Lade Debian-12-Vorlage (falls noch nicht vorhanden)..."
 pveam update >/dev/null
 TEMPLATE=$(pveam available --section system | grep debian-12-standard | awk '{print $2}' | tail -1)
@@ -73,10 +100,15 @@ pct create "$CTID" "local:vztmpl/$TEMPLATE" \
   --onboot 1
 
 pct start "$CTID"
-msg "Warte, bis der Container bereit ist..."
-sleep 8
-
-IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
+msg "Warte, bis der Container bereit ist und eine IP hat..."
+# Nicht einfach fest schlafen: langsamere Hosts brauchen länger, schnellere
+# würden unnötig warten. Sobald hostname -I eine Adresse liefert, geht es weiter.
+IP=""
+for i in $(seq 1 30); do
+  IP=$(pct exec "$CTID" -- hostname -I 2>/dev/null | awk '{print $1}')
+  [ -n "$IP" ] && break
+  sleep 1
+done
 [ -z "$IP" ] && fail "Konnte keine IP-Adresse für den Container ermitteln."
 msg "Container-IP: $IP (das Zertifikat wird direkt für diese Adresse ausgestellt)"
 
@@ -102,7 +134,10 @@ DB_PASSWORD=$(openssl rand -hex 16)
 JWT_SECRET=$(openssl rand -hex 32)
 ADMIN_PASSWORD=$(openssl rand -hex 6)
 
-pct exec "$CTID" -- bash -c "cat > /opt/feuerwehr-kataster/.env" <<EOF
+# .env auf dem Host erzeugen und per pct push in den Container bringen -
+# zuverlässiger als die Datei über eine stdin-Pipe in pct exec zu schreiben
+ENV_TMP=$(mktemp)
+cat > "$ENV_TMP" <<EOF
 DB_NAME=kataster
 DB_USER=kataster
 DB_PASSWORD=$DB_PASSWORD
@@ -110,6 +145,8 @@ JWT_SECRET=$JWT_SECRET
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 WEHRNAME=$WEHRNAME
 EOF
+pct push "$CTID" "$ENV_TMP" /opt/feuerwehr-kataster/.env
+rm -f "$ENV_TMP"
 
 msg "Erzeuge TLS-Zertifikat für $IP..."
 pct exec "$CTID" -- bash -c "cd /opt/feuerwehr-kataster && bash generate-cert.sh '$IP'"
